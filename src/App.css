@@ -1,0 +1,280 @@
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 25px;
+  box-sizing: border-box;
+  background-color: var(--bg-primary);
+}
+
+.App-header {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.App-header h1 {
+  font-size: 2.2em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.App-body {
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  grid-template-areas: "evaluation chessboard controls";
+  gap: 25px;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 1300px;
+}
+
+.panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 8px var(--shadow-color);
+  animation: fade-in-up 0.5s ease-out forwards;
+  opacity: 0; /* Start hidden for animation */
+}
+
+/* Chessboard Colors */
+:root {
+  --board-light: #B0C4DE; /* Light Steel Blue */
+  --board-dark: #708090;  /* Slate Gray */
+}
+
+.evaluation-section {
+  grid-area: evaluation;
+  display: flex;
+  align-items: stretch; /* Make children stretch to fill height */
+  padding: 0; /* Remove padding from panel to allow bar to fill */
+  border: none; /* Remove border from panel */
+  box-shadow: none; /* Remove shadow from panel */
+  background: none; /* Remove background from panel */
+}
+
+.chessboard-container-wrapper {
+  grid-area: chessboard;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
+}
+
+.chessboard-container {
+  width: 100%;
+  max-width: 600px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 5px 20px var(--shadow-color);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.control-section {
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid var(--border-color);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 15px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section-title svg {
+  color: var(--accent-primary);
+}
+
+.section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.button-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background-color: var(--bg-secondary);
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle-switch label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  background-color: var(--border-color);
+  border-radius: 10px;
+  transition: background-color 0.2s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+input:checked + .slider {
+  background-color: var(--accent-primary);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.control-group label {
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  outline: none;
+  opacity: 0.7;
+  transition: opacity .2s;
+}
+
+input[type="range"]:hover {
+  opacity: 1;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--accent-primary);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--accent-primary);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.control-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 0.95em;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23B0B3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.control-group select:hover {
+  border-color: var(--accent-primary);
+}
+
+.control-group select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1100px) {
+  .App-body {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "chessboard"
+      "controls"
+      "evaluation";
+    max-width: 600px;
+  }
+}

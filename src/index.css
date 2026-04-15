@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+:root {
+  --bg-primary: #F0F2F5; /* Light Gray */
+  --bg-secondary: #FFFFFF; /* White */
+  --bg-tertiary: #E9EBEE; /* Lighter Gray for elements */
+  --text-primary: #1D2129; /* Almost Black */
+  --text-secondary: #65676B; /* Medium Gray */
+  --accent-primary: #3498DB; /* Bright Blue */
+  --accent-primary-hover: #2980B9; /* Darker Blue */
+  --border-color: #DCDFE3;
+  --shadow-color: rgba(0, 0, 0, 0.08);
+
+  /* Chessboard Colors */
+  --board-light: #D1D5DB; /* Cool Gray 300 */
+  --board-dark: #6B7280;  /* Cool Gray 500 */
+}
+
+[data-theme='dark'] {
+  --bg-primary: #18191A; /* Very Dark Gray */
+  --bg-secondary: #242526; /* Dark Gray */
+  --bg-tertiary: #3A3B3C; /* Slightly lighter gray for elements */
+  --text-primary: #E4E6EB; /* Light Gray */
+  --text-secondary: #B0B3B8; /* Medium-Light Gray */
+  --accent-primary: #5DADE2; /* Soft Blue */
+  --accent-primary-hover: #85C1E9; /* Lighter Soft Blue */
+  --border-color: #3A3B3C;
+  --shadow-color: rgba(0, 0, 0, 0.25);
+
+  /* Chessboard Colors */
+  --board-light: #4B5563; /* Cool Gray 600 */
+  --board-dark: #1F2937; /* Cool Gray 800 */
+}
+
+/* Modern Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-secondary);
+}

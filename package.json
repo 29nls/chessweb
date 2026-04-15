@@ -1,0 +1,53 @@
+{
+  "name": "chessweb",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "chess.js": "^1.4.0",
+    "framer-motion": "^12.23.12",
+    "lodash": "^4.17.21",
+    "react": "^19.1.1",
+    "react-chessboard": "^5.6.1",
+    "react-dom": "^19.1.1",
+    "react-feather": "^2.0.10",
+    "react-helmet": "^6.1.0",
+    "react-scripts": "^5.0.1",
+    "react-toastify": "^11.0.5",
+    "socket.io-client": "^4.7.5",
+    "web-vitals": "^5.1.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "overrides": {
+    "postcss": ">=8.4.31",
+    "nth-check": ">=2.0.1"
+  },
+  "devDependencies": {
+    "serve": "^14.2.5"
+  }
+}

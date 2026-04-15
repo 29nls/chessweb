@@ -1,0 +1,31 @@
+.fab {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  font-size: 1.5em;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.fab:hover {
+  background-color: var(--accent-color-hover);
+  transform: scale(1.05);
+}
+
+.fab:before {
+  content: '\2699'; /* Gear icon for settings/analysis */
+  font-size: 1.5em;
+  line-height: 1;
+}
