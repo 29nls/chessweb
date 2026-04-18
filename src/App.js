@@ -83,8 +83,6 @@ function App() {
 
   const makeAutoOpponentMove = React.useCallback(() => {
     console.log('makeAutoOpponentMove called');
-    setIsAnalyzing(true); // Start analysis
-    setEnginePurpose('auto-move'); // Set purpose to auto-move
     sendCommand('stop'); // Stop any ongoing analysis
 
     const currentFen = fen; // Always analyze for the current FEN
