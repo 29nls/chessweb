@@ -7,6 +7,7 @@ const { Chess } = require('chess.js');
 const fs = require('fs');
 const path = require('path');
 const escapeHtml = require('escape-html');
+const tablebaseModule = require('./lichessTablebase');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +33,22 @@ app.get('/api/engines', (req, res) => {
             .map(file => escapeHtml(file));
         res.send(engineFiles);
     });
+});
+
+app.post('/api/tablebase', async (req, res) => {
+    const { fen } = req.body;
+
+    if (!fen) {
+        return res.status(400).send({ error: 'FEN is required' });
+    }
+
+    try {
+        const result = await tablebaseModule.queryTablebase(fen);
+        res.json(result);
+    } catch (error) {
+        console.error('Tablebase query error:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 const ENGINES_DIR = path.join(__dirname, '../chessengines');
@@ -208,6 +225,24 @@ io.on('connection', (socket) => {
                 currentFenForAnalysis = command.substring(13);
             }
             stockfishProcess.stdin.write(`${command}\n`);
+        }
+    });
+
+    socket.on('queryTablebase', async (fen) => {
+        console.log(`[Tablebase] Received tablebase query for FEN: ${fen.substring(0, 30)}...`);
+        try {
+            const result = await tablebaseModule.queryTablebase(fen);
+            socket.emit('tablebase_response', result);
+        } catch (error) {
+            console.error('[Tablebase] Error querying tablebase:', error);
+            socket.emit('tablebase_response', {
+                fen: fen,
+                error: error.message,
+                moves: [],
+                mainline: [],
+                checkmate: false,
+                stalemate: false,
+            });
         }
     });
 
