@@ -35,20 +35,69 @@ app.get('/api/engines', (req, res) => {
     });
 });
 
+/**
+ * POST /api/tablebase - Full tablebase analysis
+ * Body: { fen: string, variant?: 'standard'|'atomic'|'antichess' }
+ * Response: Full analysis with all moves and metrics
+ */
 app.post('/api/tablebase', async (req, res) => {
     const { fen, variant = 'standard' } = req.body;
 
     if (!fen) {
-        return res.status(400).send({ error: 'FEN is required' });
+        return res.status(400).json({ 
+            error: 'FEN is required',
+            code: 'MISSING_FEN'
+        });
     }
 
     try {
         const result = await tablebaseModule.queryTablebase(fen, variant);
-        res.json(result);
+        res.status(result.error ? 400 : 200).json(result);
     } catch (error) {
-        console.error('Tablebase query error:', error);
+        console.error('[API] Tablebase query error:', error);
+        res.status(500).json({ 
+            error: error.message,
+            code: 'QUERY_ERROR'
+        });
+    }
+});
+
+/**
+ * POST /api/tablebase/mainline - Tablebase mainline only
+ * Faster than full query - returns only best continuation
+ * Body: { fen: string, variant?: 'standard'|'atomic'|'antichess' }
+ * Response: Mainline analysis
+ */
+app.post('/api/tablebase/mainline', async (req, res) => {
+    const { fen, variant = 'standard' } = req.body;
+
+    if (!fen) {
+        return res.status(400).json({ error: 'FEN is required' });
+    }
+
+    try {
+        const result = await tablebaseModule.queryTablebaseMainline(fen, variant);
+        res.status(result.error ? 400 : 200).json(result);
+    } catch (error) {
+        console.error('[API] Tablebase mainline error:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+/**
+ * GET /api/tablebase/cache/stats - Cache statistics
+ */
+app.get('/api/tablebase/cache/stats', (req, res) => {
+    const stats = tablebaseModule.getCacheStats();
+    res.json(stats);
+});
+
+/**
+ * POST /api/tablebase/cache/clear - Clear tablebase cache
+ */
+app.post('/api/tablebase/cache/clear', (req, res) => {
+    tablebaseModule.clearCache();
+    res.json({ message: 'Cache cleared successfully' });
 });
 
 const ENGINES_DIR = path.join(__dirname, '../chessengines');
@@ -231,13 +280,18 @@ io.on('connection', (socket) => {
     socket.on('queryTablebase', async (data) => {
         const fen = typeof data === 'string' ? data : data.fen;
         const variant = typeof data === 'object' ? (data.variant || 'standard') : 'standard';
+        const mainlineOnly = typeof data === 'object' ? (data.mainlineOnly || false) : false;
 
-        console.log(`[Tablebase] Received tablebase query for ${variant}:${fen.substring(0, 30)}...`);
+        console.log(`[Tablebase] Received query: ${variant} mainline=${mainlineOnly} - ${fen.substring(0, 30)}...`);
         try {
-            const result = await tablebaseModule.queryTablebase(fen, variant);
+            const result = mainlineOnly 
+                ? await tablebaseModule.queryTablebaseMainline(fen, variant)
+                : await tablebaseModule.queryTablebase(fen, variant);
+            
             socket.emit('tablebase_response', result);
+            console.log(`[Tablebase] Sent response to client`);
         } catch (error) {
-            console.error('[Tablebase] Error querying tablebase:', error);
+            console.error('[Tablebase] Socket error:', error);
             socket.emit('tablebase_response', {
                 fen: fen,
                 variant: variant,
@@ -246,6 +300,28 @@ io.on('connection', (socket) => {
                 mainline: [],
                 checkmate: false,
                 stalemate: false,
+            });
+        }
+    });
+
+    /**
+     * Query tablebase mainline via Socket.IO
+     */
+    socket.on('queryTablebaseMainline', async (data) => {
+        const fen = typeof data === 'string' ? data : data.fen;
+        const variant = typeof data === 'object' ? (data.variant || 'standard') : 'standard';
+
+        console.log(`[Tablebase] Received mainline query: ${variant} - ${fen.substring(0, 30)}...`);
+        try {
+            const result = await tablebaseModule.queryTablebaseMainline(fen, variant);
+            socket.emit('tablebase_mainline_response', result);
+        } catch (error) {
+            console.error('[Tablebase] Mainline error:', error);
+            socket.emit('tablebase_mainline_response', {
+                fen: fen,
+                variant: variant,
+                error: error.message,
+                mainline: [],
             });
         }
     });
