@@ -10,7 +10,7 @@ import {
   Play,
   User,
   Cpu,
-  BarChart3
+  BarChart2
 } from 'react-feather';
 
 const Section = ({ title, icon, children }) => (
@@ -188,7 +188,7 @@ const Controls = ({
         </div>
 
         <div className="button-grid">
-          <IconButton onClick={onStatsClick} icon={<BarChart3 size={18} />} text="Statistics" />
+          <IconButton onClick={onStatsClick} icon={<BarChart2 size={18} />} text="Statistics" />
         </div>
       </Section>
     </div>

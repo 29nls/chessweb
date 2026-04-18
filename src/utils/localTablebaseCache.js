@@ -243,23 +243,5 @@ export function getCacheByVariant(variant = 'standard') {
     return [];
   }
 }
-    return '{}';
-  }
-}
 
-/**
- * Import cache from JSON
- * @param {string} jsonData - JSON string of cache
- * @returns {boolean} Success status
- */
-export function importLocalCache(jsonData) {
-  try {
-    const cache = JSON.parse(jsonData);
-    if (typeof cache !== 'object') return false;
-    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(cache));
-    return true;
-  } catch (e) {
-    console.error('[LocalTablebase] Error importing cache:', e);
-    return false;
-  }
-}
+

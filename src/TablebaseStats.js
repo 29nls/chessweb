@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  BarChart3,
+  BarChart2,
   Trash2,
   Download
 } from 'react-feather';
-import { getSummary, getPopularEndgames, clearStats, exportStats } from '../utils/tablebaseStatsManager';
+import { getSummary, getPopularEndgames, clearStats, exportStats } from './utils/tablebaseStatsManager';
 import './TablebaseStats.css';
 
 const TablebaseStats = ({ isOpen, onClose }) => {
@@ -48,7 +48,7 @@ const TablebaseStats = ({ isOpen, onClose }) => {
       <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
         <div className="stats-header">
           <h2>
-            <BarChart3 size={24} />
+            <BarChart2 size={24} />
             Tablebase Statistics
           </h2>
           <button className="close-button" onClick={onClose}>✕</button>
