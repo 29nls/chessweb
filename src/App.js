@@ -7,12 +7,20 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import Modal from './Modal';
+import { recordQuery } from './utils/tablebaseStatsManager';
+import {
+  getCachedResult,
+  cacheResult,
+  getCacheStats
+} from './utils/localTablebaseCache';
 
 // Lazy load components for better initial load time
 const EvaluationSection = React.lazy(() => import('./EvaluationSection'));
 const ChessboardContainer = React.lazy(() => import('./ChessboardContainer'));
 const Controls = React.lazy(() => import('./Controls'));
 const TablebaseSection = React.lazy(() => import('./TablebaseSection'));
+const ComparisonView = React.lazy(() => import('./ComparisonView'));
+const TablebaseStats = React.lazy(() => import('./TablebaseStats'));
 
 function App() {
   // Audio objects for check and checkmate sounds
@@ -35,6 +43,11 @@ function App() {
   const [enginePurpose, setEnginePurpose] = useState(null); // 'auto-move' or 'user-analysis'
   const [tablebaseData, setTablebaseData] = useState(null);
   const [isQueryingTablebase, setIsQueryingTablebase] = useState(false);
+  const [tablebaseVariant, setTablebaseVariant] = useState('standard');
+  const [showTablebaseHighlights, setShowTablebaseHighlights] = useState(true);
+  const [showComparisonView, setShowComparisonView] = useState(true);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [isOnlineMode, setIsOnlineMode] = useState(true);
 
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
@@ -154,6 +167,10 @@ function App() {
       console.log('Received tablebase response:', data);
       setTablebaseData(data);
       setIsQueryingTablebase(false);
+      // Record the query in statistics
+      if (data && !data.error) {
+        recordQuery(data.fen, data.variant || 'standard', data);
+      }
     });
 
     socket.current.on('stockfish_error', (error) => toast.error(`Engine Error: ${error}`));
@@ -179,12 +196,12 @@ function App() {
     if (isEndgamePosition(fen) && socket.current && socket.current.connected) {
       setIsQueryingTablebase(true);
       console.log('[Tablebase] Querying tablebase for endgame position');
-      socket.current.emit('queryTablebase', fen);
+      socket.current.emit('queryTablebase', { fen, variant: tablebaseVariant });
     } else if (!isEndgamePosition(fen)) {
       // Clear tablebase data if not an endgame anymore
       setTablebaseData(null);
     }
-  }, [fen]);
+  }, [fen, tablebaseVariant]);
 
   // Calculate evaluation bar height
   let whiteHeight = 50;
@@ -548,6 +565,16 @@ function App() {
           />
         </Suspense>
 
+        {showComparisonView && (
+          <Suspense fallback={<div className="panel">Loading...</div>}>
+            <ComparisonView
+              stockfishEval={stockfishEval}
+              tablebaseData={tablebaseData}
+              boardOrientation={boardOrientation}
+            />
+          </Suspense>
+        )}
+
         <Suspense fallback={<div className="chessboard-container-wrapper">Loading...</div>}>
           <ChessboardContainer
             fen={fen}
@@ -557,6 +584,8 @@ function App() {
             isAutoMoveEnabled={isAutoMoveEnabled}
             makeAutoOpponentMove={makeAutoOpponentMove}
             userColor={userColor}
+            tablebaseData={tablebaseData}
+            showTablebaseHighlights={showTablebaseHighlights}
           />
         </Suspense>
 
@@ -577,6 +606,13 @@ function App() {
             setIsAutoMoveEnabled={setIsAutoMoveEnabled}
             userColor={userColor}
             setUserColor={setUserColor}
+            tablebaseVariant={tablebaseVariant}
+            setTablebaseVariant={setTablebaseVariant}
+            showTablebaseHighlights={showTablebaseHighlights}
+            setShowTablebaseHighlights={setShowTablebaseHighlights}
+            showComparisonView={showComparisonView}
+            setShowComparisonView={setShowComparisonView}
+            onStatsClick={() => setShowStatsModal(true)}
           />
         </Suspense>
       </main>
@@ -633,6 +669,13 @@ function App() {
           <button className="button-secondary" onClick={handleDownloadPgn}>Download .pgn</button>
         </div>
       </Modal>
+
+      <Suspense fallback={null}>
+        <TablebaseStats
+          isOpen={showStatsModal}
+          onClose={() => setShowStatsModal(false)}
+        />
+      </Suspense>
     </div>
   );
 }

@@ -1,0 +1,252 @@
+/* Comparison View Styling */
+
+.comparison-view {
+  background: var(--panel-bg, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.comparison-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.comparison-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+}
+
+/* Comparison Grid */
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.comparison-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.3s ease;
+}
+
+.comparison-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.stockfish-card {
+  border-left: 4px solid #f39c12;
+}
+
+.tablebase-card {
+  border-left: 4px solid #27ae60;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-header svg {
+  width: 16px;
+  height: 16px;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Stockfish Card */
+.eval-score {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--accent-primary, #0066cc);
+  font-family: 'Courier New', monospace;
+}
+
+.eval-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-row .label {
+  color: var(--text-secondary, #999);
+  font-weight: 500;
+}
+
+.detail-row .value {
+  color: var(--text-primary, #fff);
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+}
+
+.detail-row .assessment {
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 102, 204, 0.2);
+  color: #0066cc;
+}
+
+.detail-row .assessment.mate {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+/* Tablebase Card */
+.best-move {
+  font-size: 20px;
+  font-weight: bold;
+  color: #27ae60;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+}
+
+/* WDL Stats */
+.wdl-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wdl-bar {
+  display: flex;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wdl-segment {
+  transition: flex 0.3s ease;
+}
+
+.wdl-segment.win {
+  background: #27ae60;
+  min-width: 2px;
+}
+
+.wdl-segment.draw {
+  background: #f39c12;
+  min-width: 2px;
+}
+
+.wdl-segment.loss {
+  background: #e74c3c;
+  min-width: 2px;
+}
+
+.wdl-values {
+  display: flex;
+  justify-content: space-around;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.wdl-values .value {
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex: 1;
+  text-align: center;
+}
+
+.wdl-values .value.win {
+  background: rgba(39, 174, 96, 0.2);
+  color: #27ae60;
+}
+
+.wdl-values .value.draw {
+  background: rgba(243, 156, 18, 0.2);
+  color: #f39c12;
+}
+
+.wdl-values .value.loss {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+/* Comparison Footer */
+.comparison-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+}
+
+.comparison-footer svg {
+  flex-shrink: 0;
+  color: #27ae60;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eval-score {
+    font-size: 18px;
+  }
+
+  .best-move {
+    font-size: 16px;
+  }
+
+  .comparison-view {
+    padding: 12px;
+    margin: 12px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .comparison-header h3 {
+    font-size: 14px;
+  }
+
+  .eval-score,
+  .best-move {
+    font-size: 16px;
+  }
+
+  .card-header {
+    font-size: 11px;
+  }
+
+  .eval-details {
+    font-size: 11px;
+  }
+
+  .wdl-values {
+    font-size: 9px;
+  }
+}

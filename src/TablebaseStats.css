@@ -1,0 +1,316 @@
+/* Tablebase Statistics Modal */
+
+.stats-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.stats-modal {
+  background: var(--panel-bg, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.stats-header h2 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #999);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.close-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #fff);
+}
+
+.stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* Summary Cards */
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--accent-primary, #0066cc);
+  font-family: 'Courier New', monospace;
+}
+
+/* Most Queried */
+.most-queried h3,
+.popular-endgames h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #fff);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.endgame-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #27ae60;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.endgame-fen {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: var(--accent-primary, #0066cc);
+  margin-bottom: 8px;
+  word-break: break-all;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.endgame-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.endgame-details .detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary, #999);
+}
+
+.endgame-details .detail strong {
+  color: var(--text-primary, #fff);
+  font-weight: 600;
+}
+
+/* Popular Endgames List */
+.endgames-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.endgame-row {
+  display: grid;
+  grid-template-columns: 30px 1fr 60px 100px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 12px;
+  transition: background 0.2s ease;
+}
+
+.endgame-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.endgame-row .rank {
+  font-weight: 600;
+  color: var(--accent-primary, #0066cc);
+  text-align: center;
+}
+
+.endgame-row .fen-short {
+  font-family: 'Courier New', monospace;
+  color: var(--text-secondary, #999);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.endgame-row .queries {
+  text-align: center;
+  font-weight: 600;
+  color: #f39c12;
+  background: rgba(243, 156, 18, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.endgame-row .variant-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(0, 102, 204, 0.2);
+  color: var(--accent-primary, #0066cc);
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary, #999);
+}
+
+.empty-state p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.empty-state .hint {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* Footer */
+.stats-footer {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #333);
+}
+
+.button-secondary,
+.button-danger {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #fff);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.button-danger {
+  background: rgba(231, 76, 60, 0.1);
+  border-color: rgba(231, 76, 60, 0.3);
+  color: #e74c3c;
+}
+
+.button-danger:hover:not(:disabled) {
+  background: rgba(231, 76, 60, 0.2);
+  border-color: rgba(231, 76, 60, 0.5);
+}
+
+.button-secondary:disabled,
+.button-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .stats-modal {
+    width: 95%;
+    padding: 16px;
+  }
+
+  .stats-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .endgame-row {
+    grid-template-columns: 25px 1fr 45px;
+    gap: 8px;
+  }
+
+  .endgame-row .variant-badge {
+    display: none;
+  }
+
+  .stats-footer {
+    flex-direction: column;
+  }
+}

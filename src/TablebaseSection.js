@@ -6,7 +6,7 @@ const TablebaseSection = ({ tablebaseData, isLoading, boardOrientation }) => {
     return null;
   }
 
-  const { moves, mainline, checkmate, stalemate } = tablebaseData;
+  const { moves, mainline, checkmate, stalemate, variant } = tablebaseData;
 
   // Don't display if no moves available
   if (!moves || moves.length === 0) {
@@ -63,7 +63,7 @@ const TablebaseSection = ({ tablebaseData, isLoading, boardOrientation }) => {
   return (
     <div className="tablebase-section panel">
       <div className="tablebase-header">
-        <h3>🎯 Tablebase (Endgame)</h3>
+        <h3>🎯 Tablebase {variant && `(${variant.charAt(0).toUpperCase() + variant.slice(1)})`} Endgame</h3>
         {isLoading && <div className="tablebase-loading">Loading...</div>}
       </div>
 

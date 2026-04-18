@@ -50,16 +50,18 @@ class SimpleCache {
 const cache = new SimpleCache(500, 3600); // 500 positions, 1 hour TTL
 
 /**
- * Fetch tablebase data from Lichess API
+ * Fetch tablebase data from Lichess API with variant support
  * @param {string} fen - Chess position in FEN notation
+ * @param {string} variant - Tablebase variant ('standard', 'atomic', 'antichess')
  * @returns {Promise<Object>} Tablebase data with moves, mainline, WDL stats
  */
-async function queryTablebase(fen) {
+async function queryTablebase(fen, variant = 'standard') {
   try {
     // Validate FEN format (basic check)
     if (!fen || typeof fen !== 'string') {
       return {
         fen: fen || '',
+        variant: variant,
         error: 'Invalid FEN format',
         moves: [],
         mainline: [],
@@ -68,30 +70,39 @@ async function queryTablebase(fen) {
       };
     }
 
-    // Check cache first
-    const cached = cache.get(fen);
+    // Validate variant
+    const validVariants = ['standard', 'atomic', 'antichess'];
+    if (!validVariants.includes(variant)) {
+      variant = 'standard';
+    }
+
+    // Check cache first (key includes variant for separation)
+    const cacheKey = `${variant}:${fen}`;
+    const cached = cache.get(cacheKey);
     if (cached) {
-      console.log(`[Tablebase] Cache hit for FEN: ${fen.substring(0, 30)}...`);
+      console.log(`[Tablebase] Cache hit for ${variant}:${fen.substring(0, 30)}...`);
       return cached;
     }
 
-    console.log(`[Tablebase] Querying Lichess API for FEN: ${fen.substring(0, 30)}...`);
+    console.log(`[Tablebase] Querying Lichess API for ${variant}:${fen.substring(0, 30)}...`);
 
-    // Construct URL
-    const url = new URL('https://tablebase.lichess.ovh/standard');
+    // Construct URL with variant
+    const url = new URL(`https://tablebase.lichess.ovh/${variant}`);
     url.searchParams.append('fen', fen);
 
     const result = await fetchWithTimeout(url.toString(), 2000);
+    result.variant = variant;
 
     // Cache successful result
-    cache.set(fen, result);
-    console.log(`[Tablebase] Cached result for FEN: ${fen.substring(0, 30)}...`);
+    cache.set(cacheKey, result);
+    console.log(`[Tablebase] Cached result for ${variant}:${fen.substring(0, 30)}...`);
 
     return result;
   } catch (error) {
     console.error(`[Tablebase] Error querying tablebase:`, error.message);
     return {
       fen: fen || '',
+      variant: variant,
       error: error.message,
       moves: [],
       mainline: [],

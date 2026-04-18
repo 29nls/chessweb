@@ -36,14 +36,14 @@ app.get('/api/engines', (req, res) => {
 });
 
 app.post('/api/tablebase', async (req, res) => {
-    const { fen } = req.body;
+    const { fen, variant = 'standard' } = req.body;
 
     if (!fen) {
         return res.status(400).send({ error: 'FEN is required' });
     }
 
     try {
-        const result = await tablebaseModule.queryTablebase(fen);
+        const result = await tablebaseModule.queryTablebase(fen, variant);
         res.json(result);
     } catch (error) {
         console.error('Tablebase query error:', error);
@@ -228,15 +228,19 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('queryTablebase', async (fen) => {
-        console.log(`[Tablebase] Received tablebase query for FEN: ${fen.substring(0, 30)}...`);
+    socket.on('queryTablebase', async (data) => {
+        const fen = typeof data === 'string' ? data : data.fen;
+        const variant = typeof data === 'object' ? (data.variant || 'standard') : 'standard';
+
+        console.log(`[Tablebase] Received tablebase query for ${variant}:${fen.substring(0, 30)}...`);
         try {
-            const result = await tablebaseModule.queryTablebase(fen);
+            const result = await tablebaseModule.queryTablebase(fen, variant);
             socket.emit('tablebase_response', result);
         } catch (error) {
             console.error('[Tablebase] Error querying tablebase:', error);
             socket.emit('tablebase_response', {
                 fen: fen,
+                variant: variant,
                 error: error.message,
                 moves: [],
                 mainline: [],
