@@ -9,14 +9,13 @@ const ChessboardContainer = ({
   isAutoMoveEnabled,
   makeAutoOpponentMove,
   userColor, // New prop for user's playing color
-  tablebaseData, // New prop for tablebase data (for move highlighting)
-  showTablebaseHighlights // New prop to toggle highlights
+  tablebaseData // New prop for tablebase data (for move highlighting)
 }) => {
   const prevFenRef = useRef(fen);
 
   // Calculate tablebase move arrows (W/D/L highlighting)
   const calculateTablebaseArrows = () => {
-    if (!tablebaseData || !tablebaseData.moves || showTablebaseHighlights === false) {
+    if (!tablebaseData || !tablebaseData.moves) {
       return [];
     }
 

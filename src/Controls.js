@@ -6,11 +6,9 @@ import {
   ChevronRight,
   Upload,
   Download,
-  Settings,
   Play,
   User,
-  Cpu,
-  BarChart2
+  Cpu
 } from 'react-feather';
 
 const Section = ({ title, icon, children }) => (
@@ -45,11 +43,7 @@ const Controls = ({
   engineSettings, setEngineSettings, sendCommand,
   onFenClick, onPgnClick,
   isAutoMoveEnabled, setIsAutoMoveEnabled,
-  userColor, setUserColor,
-  tablebaseVariant, setTablebaseVariant,
-  showTablebaseHighlights, setShowTablebaseHighlights,
-  showComparisonView, setShowComparisonView,
-  onStatsClick
+  userColor, setUserColor
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
@@ -126,27 +120,6 @@ const Controls = ({
 
       <Section title="Engine" icon={<Cpu size={20} />}>
         <div className="control-group">
-          <label htmlFor="tablebase-variant">Tablebase Variant</label>
-          <select id="tablebase-variant" value={tablebaseVariant} onChange={(e) => setTablebaseVariant(e.target.value)}>
-            <option value="standard">Standard Chess</option>
-            <option value="atomic">Atomic Chess</option>
-            <option value="antichess">Antichess</option>
-          </select>
-        </div>
-
-        <Toggle
-          label="Highlight Tablebase Moves"
-          checked={showTablebaseHighlights !== false}
-          onChange={(e) => setShowTablebaseHighlights(e.target.checked)}
-        />
-
-        <Toggle
-          label="Show Engine Comparison"
-          checked={showComparisonView !== false}
-          onChange={(e) => setShowComparisonView(e.target.checked)}
-        />
-
-        <div className="control-group">
           <label htmlFor="engine-select">Chess Engine</label>
           <select id="engine-select" value={selectedEngine} onChange={handleEngineChange}>
             {engines.map(engine => (
@@ -185,10 +158,6 @@ const Controls = ({
               <option key={size} value={size}>{size}</option>
             ))}
           </select>
-        </div>
-
-        <div className="button-grid">
-          <IconButton onClick={onStatsClick} icon={<BarChart2 size={18} />} text="Statistics" />
         </div>
       </Section>
     </div>
