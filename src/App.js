@@ -7,11 +7,6 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import Modal from './Modal';
-import {
-  getCachedResult,
-  cacheResult,
-  getCacheStats
-} from './utils/localTablebaseCache';
 
 // Lazy load components for better initial load time
 const EvaluationSection = React.lazy(() => import('./EvaluationSection'));
@@ -20,10 +15,6 @@ const Controls = React.lazy(() => import('./Controls'));
 const TablebaseSection = React.lazy(() => import('./TablebaseSection'));
 
 function App() {
-  // Audio objects for check and checkmate sounds
-  const checkSound = useRef(new Audio('/assets/sounds/check.mp3'));
-  const checkmateSound = useRef(new Audio('/assets/sounds/checkmate.mp3'));
-
   const [game, setGame] = useState(new Chess());
   const [fen, setFen] = useState(game.fen());
   const [moveHistory, setMoveHistory] = useState([game.fen()]); // Initialize with starting FEN
@@ -36,11 +27,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDepthAnalysisEnabled, setIsDepthAnalysisEnabled] = useState(false); // New state for depth analysis toggle
   const [isAutoMoveEnabled, setIsAutoMoveEnabled] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [enginePurpose, setEnginePurpose] = useState(null); // 'auto-move' or 'user-analysis'
   const [tablebaseData, setTablebaseData] = useState(null);
   const [isQueryingTablebase, setIsQueryingTablebase] = useState(false);
-  const [isOnlineMode, setIsOnlineMode] = useState(true);
 
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
@@ -60,16 +48,17 @@ function App() {
   const [movetime, setMovetime] = useState(1000);
   const [depth, setDepth] = useState(20); // New state for search depth
   const [threads, setThreads] = useState(4);
-  const [maxThreads, setMaxThreads] = useState(navigator.hardwareConcurrency || 4);
   const [hashSize, setHashSize] = useState(128);
-  const [maxHashSize, setMaxHashSize] = useState(() => {
+  
+  // Calculate max values once (not state since they don't change)
+  const maxThreads = navigator.hardwareConcurrency || 4;
+  const maxHashSize = (() => {
     if (navigator.deviceMemory) {
-      // Use half of the device memory in MB, rounded down to the nearest power of 2
       const memoryInMB = Math.floor(navigator.deviceMemory * 1024);
       return Math.pow(2, Math.floor(Math.log2(memoryInMB / 2)));
     }
-    return 2048; // Default to 2GB if deviceMemory is not available
-  });
+    return 2048;
+  })();
 
   const socket = useRef(null);
   const analysisFenRef = useRef(null);
@@ -235,12 +224,16 @@ function App() {
     setLastMove({ from: move.from, to: move.to });
     // Keep the main game state in sync so PGN export (game.pgn()) includes the moves
     setGame(gameCopy);
-    // Append SAN to moves list
-    if (move.san) setMoves(prev => [...prev, move.san]);
-
-    // Update move history
+    
+    // Update move history - slice to remove any moves after current pointer
     const newHistory = moveHistory.slice(0, historyPointer + 1);
     setMoveHistory([...newHistory, newFen]);
+    
+    // Update moves array - slice to remove any moves after current pointer, then add new move
+    const newMoves = moves.slice(0, historyPointer);
+    if (move.san) newMoves.push(move.san);
+    setMoves(newMoves);
+    
     setHistoryPointer(newHistory.length);
 
     sendCommand(`position fen ${newFen}`);
@@ -250,25 +243,16 @@ function App() {
   const undoMove = () => {
     if (historyPointer > 0) {
       const newPointer = historyPointer - 1;
-      const newGame = new Chess();
-      const movesToApply = moves.slice(0, newPointer);
+      const newFen = moveHistory[newPointer];
       
-      // Apply moves one by one to maintain proper game state
-      movesToApply.forEach(move => {
-        try {
-          newGame.move(move);
-        } catch (err) {
-          console.error('Error applying move during undo:', move, err);
-        }
-      });
-
-      const newFen = newGame.fen();
+      // Recreate game state from FEN without modifying moves array
+      const newGame = new Chess(newFen);
       
-      // Get the last move that was undone to clear visual highlights
+      // Get the last move that was undone
       const lastMove = moves[newPointer];
       let lastMoveSquares = null;
       
-      if (lastMove) {
+      if (lastMove && newPointer < moveHistory.length - 1) {
         try {
           const tempGame = new Chess(moveHistory[newPointer]);
           const moveObj = tempGame.move(lastMove, { sloppy: true });
@@ -283,7 +267,6 @@ function App() {
       setHistoryPointer(newPointer);
       setFen(newFen);
       setGame(newGame);
-      setMoves(movesToApply);
       setLastMove(lastMoveSquares);
       
       // Update engine
@@ -297,21 +280,12 @@ function App() {
   const redoMove = () => {
     if (historyPointer < moveHistory.length - 1) {
       const newPointer = historyPointer + 1;
-      const newGame = new Chess();
-      const movesToApply = moves.slice(0, newPointer);
+      const newFen = moveHistory[newPointer];
       
-      // Apply moves one by one to maintain proper game state
-      movesToApply.forEach(move => {
-        try {
-          newGame.move(move);
-        } catch (err) {
-          console.error('Error applying move during redo:', move, err);
-        }
-      });
-
-      const newFen = newGame.fen();
+      // Recreate game state from FEN without modifying moves array
+      const newGame = new Chess(newFen);
       
-      // Get the last move that was redone to show visual highlights
+      // Get the last move that was redone
       const lastMove = moves[newPointer - 1];
       let lastMoveSquares = null;
       
@@ -330,7 +304,6 @@ function App() {
       setHistoryPointer(newPointer);
       setFen(newFen);
       setGame(newGame);
-      setMoves(movesToApply);
       setLastMove(lastMoveSquares);
       
       // Update engine
@@ -408,7 +381,7 @@ function App() {
       // Build a friendly filename: YYYY-MM-DD_White_vs_Black.pgn
       const sanitize = (s) => {
         if (!s) return '';
-        return s.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
+        return s.replace(/\s+/g, '_').replace(/[^\w-]/g, '');
       };
 
       // Use header Date if valid (not placeholder containing '?'), else use today's date
@@ -533,7 +506,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1></h1>
+        <h1>ChessWeb</h1>
       </header>
 
       <main className="App-body">
