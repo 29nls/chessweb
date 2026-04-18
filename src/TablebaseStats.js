@@ -8,7 +8,12 @@ import { getSummary, getPopularEndgames, clearStats, exportStats } from './utils
 import './TablebaseStats.css';
 
 const TablebaseStats = ({ isOpen, onClose }) => {
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState({
+    totalQueries: 0,
+    totalPositions: 0,
+    averageWinRate: 0,
+    mostQueried: null,
+  });
   const [popularEndgames, setPopularEndgames] = useState([]);
 
   useEffect(() => {
@@ -39,7 +44,7 @@ const TablebaseStats = ({ isOpen, onClose }) => {
     URL.revokeObjectURL(url);
   };
 
-  if (!isOpen || !summary) {
+  if (!isOpen) {
     return null;
   }
 
