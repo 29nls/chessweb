@@ -13,7 +13,8 @@ WORKDIR /app
 
 # Copy package.json and install dependencies first (for Docker layer caching)
 COPY package.json ./
-RUN npm install --production
+# Skip postinstall script because Dockerfile handles Stockfish download separately below
+RUN npm install --production --ignore-scripts
 
 # Download Stockfish chess engine to the expected path (../chessengines/ relative to server.js)
 # server.js uses:  ENGINES_DIR = path.join(__dirname, '../chessengines')
