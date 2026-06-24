@@ -4,7 +4,7 @@
 # Ganti dengan URL backend yang sudah di-deploy ke Render
 # Contoh: https://chessweb-backend.onrender.com
 # Untuk development lokal, tidak perlu diisi (default: http://localhost:3001)
-REACT_APP_BACKEND_URL=
+REACT_APP_BACKEND_URL=https://backend-damp-ember-8445.fly.dev
 
 # === Backend Variables (untuk Render / development) ===
 

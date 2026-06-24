@@ -7,6 +7,8 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import Modal from './Modal';
+import { calculateLoss, classifyMove, LABELS } from './MoveClassification';
+import MoveHistory from './MoveHistory';
 
 // Lazy load components for better initial load time
 const EvaluationSection = React.lazy(() => import('./EvaluationSection'));
@@ -26,6 +28,8 @@ function App() {
   const [isDepthAnalysisEnabled, setIsDepthAnalysisEnabled] = useState(false); // New state for depth analysis toggle
   const [isAutoMoveEnabled, setIsAutoMoveEnabled] = useState(false);
 
+  const [moveClassifications, setMoveClassifications] = useState([]);
+  
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
   const [fenInput, setFenInput] = useState('');
@@ -43,8 +47,8 @@ function App() {
   // Engine settings
   const [movetime, setMovetime] = useState(1000);
   const [depth, setDepth] = useState(20); // New state for search depth
-  const [threads, setThreads] = useState(4);
-  const [hashSize, setHashSize] = useState(128);
+  const [threads, setThreads] = useState(1);
+  const [hashSize, setHashSize] = useState(64);
   
   // Calculate max values once (not state since they don't change)
   const maxThreads = navigator.hardwareConcurrency || 4;
@@ -58,6 +62,10 @@ function App() {
 
   const socket = useRef(null);
   const analysisFenRef = useRef(null);
+  const evalBeforeRef = useRef(null);
+  const pendingClassifyRef = useRef(false);
+  const pendingSideRef = useRef(null);
+  const pendingIsEngineRef = useRef(false);
 
   const sendCommand = React.useCallback((command) => {
     console.log('Sending command:', command);
@@ -105,26 +113,60 @@ function App() {
     socket.current.on('stockfish_output', (data) => {
       console.log('Received Stockfish output:', data); // Added log
         if (data.type === 'info' && data.score) {
-          setStockfishEval({
+          const newEval = {
             score: data.score.value,
             type: data.score.type,
             depth: data.depth,
             nodes: data.nodes,
             nps: data.nps,
             tbhits: data.tbhits
-          });
+          };
+          setStockfishEval(newEval);
+
+          // Classify pending move when Stockfish evaluates the new position
+          if (pendingClassifyRef.current) {
+            // Handle both cp and mate score types
+            let beforeScore = evalBeforeRef.current;
+            let afterScore = data.score.value;
+
+            if (data.score.type === 'mate') {
+              // Convert mate scores to approximate centipawn value for comparison
+              // Mate in N for White = large positive, for Black = large negative
+              beforeScore = beforeScore || 0;
+              afterScore = afterScore > 0 ? 10000 : -10000;
+            }
+
+            const side = pendingSideRef.current;
+            const isEngine = pendingIsEngineRef.current;
+
+            const loss = calculateLoss(beforeScore, afterScore, side);
+            const classification = classifyMove(
+              loss, beforeScore, afterScore, isEngine
+            );
+
+            setMoveClassifications(prev => [...prev, classification]);
+            pendingClassifyRef.current = false;
+            pendingIsEngineRef.current = false;
+            pendingSideRef.current = null;
+          }
         } else if (data.type === 'bestmove') {
           console.log('Received bestmove from Stockfish:', data.move);
 
-          // Only handle auto-move logic
-          const gameCopy = new Chess(fen); // Use the current FEN
+          // Capture eval before engine makes its move
+          const turn = fen.split(' ')[1];
+          const sideThatMoved = turn; // Sisi yang gilirannya = sisi yang baru bergerak
+          evalBeforeRef.current = stockfishEval.score;
+          pendingClassifyRef.current = true;
+          pendingSideRef.current = sideThatMoved;
+          pendingIsEngineRef.current = true;
+
+          // Execute engine move
+          const gameCopy = new Chess(fen);
           const moveResult = gameCopy.move(data.move, { sloppy: true });
           if (moveResult) {
             console.log('Bestmove applied successfully. New FEN:', gameCopy.fen());
             setFen(gameCopy.fen());
-            // Keep the main game state in sync so PGN export (game.pgn()) includes the engine move
             setGame(gameCopy);
-            // Append SAN to moves list if available
             if (moveResult.san) setMoves(prev => [...prev, moveResult.san]);
             setLastMove({ from: moveResult.from, to: moveResult.to });
           } else {
@@ -179,6 +221,14 @@ function App() {
       moveOptions.promotion = 'q'; // Default to queen promotion
     }
 
+    // Capture evaluation BEFORE the move for classification
+    const turnBeforeMove = fen.split(' ')[1];
+    const sideThatMoved = turnBeforeMove; // The side to move IS the one making the move
+    evalBeforeRef.current = stockfishEval.score;
+    pendingClassifyRef.current = true;
+    pendingSideRef.current = sideThatMoved;
+    pendingIsEngineRef.current = false;
+
     console.log('onDrop: Current FEN:', fen);
     console.log('onDrop: Move Options:', moveOptions);
 
@@ -186,32 +236,39 @@ function App() {
 
     if (move === null) {
       toast.error('Illegal move!');
+      pendingClassifyRef.current = false;
       return false; // Illegal move
     }
 
     const newFen = gameCopy.fen();
     setFen(newFen);
     setLastMove({ from: move.from, to: move.to });
-    // Keep the main game state in sync so PGN export (game.pgn()) includes the moves
     setGame(gameCopy);
     
-    // Update move history - slice to remove any moves after current pointer
+    // Update move history
     const newHistory = moveHistory.slice(0, historyPointer + 1);
     setMoveHistory([...newHistory, newFen]);
     
-    // Update moves array - slice to remove any moves after current pointer, then add new move
+    // Update moves array
     const newMoves = moves.slice(0, historyPointer);
     if (move.san) newMoves.push(move.san);
     setMoves(newMoves);
     
+    // Slice classifications to match pointer (remove stale ones from undo/redo)
+    setMoveClassifications(prev => prev.slice(0, historyPointer));
+    
     setHistoryPointer(newHistory.length);
 
+    // Update engine
     sendCommand(`position fen ${newFen}`);
     return true;
   };
 
   const undoMove = () => {
     if (historyPointer > 0) {
+      // Also remove the last classification
+      setMoveClassifications(prev => prev.slice(0, -1));
+      
       const newPointer = historyPointer - 1;
       const newFen = moveHistory[newPointer];
       
@@ -249,6 +306,9 @@ function App() {
 
   const redoMove = () => {
     if (historyPointer < moveHistory.length - 1) {
+      // Classification for redone moves isn't available, add placeholder
+      setMoveClassifications(prev => [...prev, LABELS.GOOD]);
+      
       const newPointer = historyPointer + 1;
       const newFen = moveHistory[newPointer];
       
@@ -294,6 +354,8 @@ function App() {
     setStockfishEval({ score: null, type: 'cp' });
     setMoveHistory([initialFen]);
     setHistoryPointer(0);
+    setMoveClassifications([]);
+    pendingClassifyRef.current = false;
     toast.info('New game started.');
     sendCommand('ucinewgame');
   };
@@ -394,6 +456,7 @@ function App() {
       setStockfishEval({ score: null, type: 'cp' });
       setMoveHistory([newFen]); // Reset history
       setHistoryPointer(0);   // Reset pointer
+      setMoveClassifications([]);
       toast.success('FEN imported successfully!');
       setShowFenModal(false);
       sendCommand(`position fen ${newFen}`); // Sync engine
@@ -483,7 +546,6 @@ function App() {
         <Suspense fallback={<div className="panel">Loading...</div>}>
           <EvaluationSection
             evaluation={stockfishEval}
-            orientation={boardOrientation}
             whiteHeight={whiteHeight}
             isDepthAnalysisEnabled={isDepthAnalysisEnabled}
           />
@@ -519,6 +581,13 @@ function App() {
             userColor={userColor}
             setUserColor={setUserColor}
             backendUrl={backendUrl}
+          />
+        </Suspense>
+
+        <Suspense fallback={<div className="panel">Loading...</div>}>
+          <MoveHistory
+            moves={moves}
+            classifications={moveClassifications}
           />
         </Suspense>
       </main>

@@ -8,21 +8,20 @@ import {
 } from 'react-feather';
 import './EvaluationSection.css';
 
-const EvaluationSection = ({ evaluation, orientation }) => {
+const EvaluationSection = ({ evaluation }) => {
   const getFormattedEval = () => {
     if (evaluation.score === null) return '+0.00';
 
-    let score = evaluation.type === 'cp' ? (evaluation.score / 100).toFixed(2) : `#${Math.abs(evaluation.score)}`;
-    
-    if (orientation === 'black' && evaluation.type === 'cp') {
-      score = (parseFloat(score) * -1).toFixed(2);
+    // Stockfish selalu evaluasi dari perspektif White (positif = White unggul)
+    if (evaluation.type === 'cp') {
+      // Centipawn ke pawn
+      const score = (evaluation.score / 100).toFixed(2);
+      return parseFloat(score) >= 0 ? `+${score}` : score;
+    } else {
+      // Mate: positif = White skakmat, negatif = Black skakmat
+      const prefix = evaluation.score > 0 ? '+' : '-';
+      return `${prefix}#${Math.abs(evaluation.score)}`;
     }
-
-    if (evaluation.type === 'cp' && parseFloat(score) > 0) {
-      score = `+${score}`;
-    }
-
-    return score;
   };
 
   const EvalItem = ({ icon, label, value }) => (

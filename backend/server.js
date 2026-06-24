@@ -152,8 +152,8 @@ function startStockfish() {
     stockfishProcess.stdin.write('uci\n');
     stockfishProcess.stdin.write('setoption name Ponder value true\n');
     stockfishProcess.stdin.write('setoption name MultiPV value 1\n');
-    stockfishProcess.stdin.write('setoption name Threads value 4\n');
-    stockfishProcess.stdin.write('setoption name Hash value 128\n');
+    stockfishProcess.stdin.write('setoption name Threads value 1\n');
+    stockfishProcess.stdin.write('setoption name Hash value 64\n');
     stockfishProcess.stdin.write('setoption name NumaPolicy value auto\n');
     stockfishProcess.stdin.write('setoption name UCI_ShowWDL value true\n');
     stockfishProcess.stdin.write('setoption name UCI_Elo value 3190\n');

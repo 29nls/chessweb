@@ -36,7 +36,9 @@
 .App-body {
   display: grid;
   grid-template-columns: 260px 1fr 260px;
-  grid-template-areas: "evaluation chessboard controls";
+  grid-template-areas:
+    "evaluation chessboard controls"
+    "movehistory movehistory movehistory";
   gap: 25px;
   align-items: flex-start;
   width: 100%;
@@ -274,7 +276,8 @@ input[type="range"]::-moz-range-thumb {
     grid-template-areas:
       "chessboard"
       "controls"
-      "evaluation";
+      "evaluation"
+      "movehistory";
     max-width: 600px;
   }
 }
