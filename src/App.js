@@ -12,8 +12,6 @@ import Modal from './Modal';
 const EvaluationSection = React.lazy(() => import('./EvaluationSection'));
 const ChessboardContainer = React.lazy(() => import('./ChessboardContainer'));
 const Controls = React.lazy(() => import('./Controls'));
-const TablebaseSection = React.lazy(() => import('./TablebaseSection'));
-
 function App() {
   const [game, setGame] = useState(new Chess());
   const [fen, setFen] = useState(game.fen());
@@ -27,8 +25,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDepthAnalysisEnabled, setIsDepthAnalysisEnabled] = useState(false); // New state for depth analysis toggle
   const [isAutoMoveEnabled, setIsAutoMoveEnabled] = useState(false);
-  const [tablebaseData, setTablebaseData] = useState(null);
-  const [isQueryingTablebase, setIsQueryingTablebase] = useState(false);
 
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
@@ -62,14 +58,6 @@ function App() {
 
   const socket = useRef(null);
   const analysisFenRef = useRef(null);
-
-  // Helper function to check if a position is an endgame (≤7 pieces)
-  const isEndgamePosition = (fenStr) => {
-    if (!fenStr || typeof fenStr !== 'string') return false;
-    const piecesMatch = fenStr.split(' ')[0].match(/[a-zA-Z]/g);
-    const piecesCount = piecesMatch ? piecesMatch.length : 0;
-    return piecesCount <= 7;
-  };
 
   const sendCommand = React.useCallback((command) => {
     console.log('Sending command:', command);
@@ -143,12 +131,6 @@ function App() {
         }
     });
 
-    socket.current.on('tablebase_response', (data) => {
-      console.log('Received tablebase response:', data);
-      setTablebaseData(data);
-      setIsQueryingTablebase(false);
-    });
-
     socket.current.on('stockfish_error', (error) => toast.error(`Engine Error: ${error}`));
 
     return () => socket.current.disconnect();
@@ -166,18 +148,6 @@ function App() {
       }
     }
   }, [isAutoMoveEnabled, fen, userColor, makeAutoOpponentMove]);
-
-  // Effect to trigger tablebase query when position changes
-  useEffect(() => {
-    if (isEndgamePosition(fen) && socket.current && socket.current.connected) {
-      setIsQueryingTablebase(true);
-      console.log('[Tablebase] Querying tablebase for endgame position');
-      socket.current.emit('queryTablebase', { fen, variant: 'standard' });
-    } else if (!isEndgamePosition(fen)) {
-      // Clear tablebase data if not an endgame anymore
-      setTablebaseData(null);
-    }
-  }, [fen]);
 
   // Calculate evaluation bar height
   let whiteHeight = 50;
@@ -517,14 +487,6 @@ function App() {
           />
         </Suspense>
 
-        <Suspense fallback={<div className="panel">Loading...</div>}>
-          <TablebaseSection
-            tablebaseData={tablebaseData}
-            isLoading={isQueryingTablebase}
-            boardOrientation={boardOrientation}
-          />
-        </Suspense>
-
         <Suspense fallback={<div className="chessboard-container-wrapper">Loading...</div>}>
           <ChessboardContainer
             fen={fen}
@@ -534,7 +496,6 @@ function App() {
             isAutoMoveEnabled={isAutoMoveEnabled}
             makeAutoOpponentMove={makeAutoOpponentMove}
             userColor={userColor}
-            tablebaseData={tablebaseData}
           />
         </Suspense>
 

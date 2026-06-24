@@ -8,7 +8,6 @@ ChessWeb is a web-based chess application that allows users to play against a po
 *   **Engine Integration:** Connects to UCI-compatible chess engines (e.g., Stockfish) for analysis and opponent moves.
 *   **Engine Selection:** Easily switch between different chess engines located in the `chessengines` directory.
 *   **Configurable Engine Settings:** Adjust parameters like analysis depth, movetime, CPU threads, and hash size.
-*   **Syzygy Tablebase Support:** Utilizes Syzygy tablebases for accurate endgame analysis (requires tablebases to be present).
 *   **FEN/PGN Support:** Import and export game positions using FEN (Forsyth-Edwards Notation) and PGN (Portable Game Notation).
 *   **Auto-Move Opponent:** Enable the engine to automatically make moves for the opponent.
 *   **Board Orientation:** Flip the board to view from white's or black's perspective.
@@ -56,11 +55,7 @@ cd ..
 
 Place your UCI-compatible chess engine executables (e.g., `.exe` files for Windows) into the `chessengines/` directory. The application is configured to look for engines in this folder.
 
-### 4. (Optional) Setup Syzygy Tablebases
-
-If you wish to use Syzygy tablebases for enhanced endgame analysis, download them and place them in the `syzygy_tablebases/` directory. The current configuration expects them in `syzygy_tablebases/3-4-5 2022`.
-
-### 5. Start the Backend Server
+### 4. Start the Backend Server
 
 Navigate to the project root and start the backend server:
 

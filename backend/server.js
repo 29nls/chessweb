@@ -7,7 +7,6 @@ const { Chess } = require('chess.js');
 const fs = require('fs');
 const path = require('path');
 const escapeHtml = require('escape-html');
-const tablebaseModule = require('./lichessTablebase');
 
 const app = express();
 const server = http.createServer(app);
@@ -33,71 +32,6 @@ app.get('/api/engines', (req, res) => {
             .map(file => escapeHtml(file));
         res.send(engineFiles);
     });
-});
-
-/**
- * POST /api/tablebase - Full tablebase analysis
- * Body: { fen: string, variant?: 'standard'|'atomic'|'antichess' }
- * Response: Full analysis with all moves and metrics
- */
-app.post('/api/tablebase', async (req, res) => {
-    const { fen, variant = 'standard' } = req.body;
-
-    if (!fen) {
-        return res.status(400).json({ 
-            error: 'FEN is required',
-            code: 'MISSING_FEN'
-        });
-    }
-
-    try {
-        const result = await tablebaseModule.queryTablebase(fen, variant);
-        res.status(result.error ? 400 : 200).json(result);
-    } catch (error) {
-        console.error('[API] Tablebase query error:', error);
-        res.status(500).json({ 
-            error: error.message,
-            code: 'QUERY_ERROR'
-        });
-    }
-});
-
-/**
- * POST /api/tablebase/mainline - Tablebase mainline only
- * Faster than full query - returns only best continuation
- * Body: { fen: string, variant?: 'standard'|'atomic'|'antichess' }
- * Response: Mainline analysis
- */
-app.post('/api/tablebase/mainline', async (req, res) => {
-    const { fen, variant = 'standard' } = req.body;
-
-    if (!fen) {
-        return res.status(400).json({ error: 'FEN is required' });
-    }
-
-    try {
-        const result = await tablebaseModule.queryTablebaseMainline(fen, variant);
-        res.status(result.error ? 400 : 200).json(result);
-    } catch (error) {
-        console.error('[API] Tablebase mainline error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * GET /api/tablebase/cache/stats - Cache statistics
- */
-app.get('/api/tablebase/cache/stats', (req, res) => {
-    const stats = tablebaseModule.getCacheStats();
-    res.json(stats);
-});
-
-/**
- * POST /api/tablebase/cache/clear - Clear tablebase cache
- */
-app.post('/api/tablebase/cache/clear', (req, res) => {
-    tablebaseModule.clearCache();
-    res.json({ message: 'Cache cleared successfully' });
 });
 
 const ENGINES_DIR = path.join(__dirname, '../chessengines');
@@ -188,20 +122,6 @@ function startStockfish() {
     stockfishProcess.stdin.write('setoption name NumaPolicy value auto\n');
     stockfishProcess.stdin.write('setoption name UCI_ShowWDL value true\n');
     stockfishProcess.stdin.write('setoption name UCI_Elo value 3190\n');
-    console.log('[Backend] Setting Syzygy tablebase options...');
-    const syzygyDir = path.join(__dirname, '../syzygy_tablebases/3-4-5 2022');
-    if (fs.existsSync(syzygyDir)) {
-        const syzygyPath = syzygyDir.replace(/\\/g, '/');
-        console.log(`[Backend] SyzygyPath being sent to engine: ${syzygyPath}`);
-        stockfishProcess.stdin.write(`setoption name SyzygyPath value ${syzygyPath}\n`);
-        // Only send SyzygyProbeDepth and Syzygy50MoveRule if the engine is Stockfish
-        if (currentEnginePath.includes('stockfish')) {
-            stockfishProcess.stdin.write('setoption name SyzygyProbeDepth value 50\n');
-            stockfishProcess.stdin.write('setoption name Syzygy50MoveRule value true\n');
-        }
-    } else {
-        console.log('[Backend] Syzygy tablebase directory not found. Skipping configuration.');
-    }
     stockfishProcess.stdin.write('isready\n');
 }
 let currentFenForAnalysis = ''; // Initialize currentFenForAnalysis
@@ -274,55 +194,6 @@ io.on('connection', (socket) => {
                 currentFenForAnalysis = command.substring(13);
             }
             stockfishProcess.stdin.write(`${command}\n`);
-        }
-    });
-
-    socket.on('queryTablebase', async (data) => {
-        const fen = typeof data === 'string' ? data : data.fen;
-        const variant = typeof data === 'object' ? (data.variant || 'standard') : 'standard';
-        const mainlineOnly = typeof data === 'object' ? (data.mainlineOnly || false) : false;
-
-        console.log(`[Tablebase] Received query: ${variant} mainline=${mainlineOnly} - ${fen.substring(0, 30)}...`);
-        try {
-            const result = mainlineOnly 
-                ? await tablebaseModule.queryTablebaseMainline(fen, variant)
-                : await tablebaseModule.queryTablebase(fen, variant);
-            
-            socket.emit('tablebase_response', result);
-            console.log(`[Tablebase] Sent response to client`);
-        } catch (error) {
-            console.error('[Tablebase] Socket error:', error);
-            socket.emit('tablebase_response', {
-                fen: fen,
-                variant: variant,
-                error: error.message,
-                moves: [],
-                mainline: [],
-                checkmate: false,
-                stalemate: false,
-            });
-        }
-    });
-
-    /**
-     * Query tablebase mainline via Socket.IO
-     */
-    socket.on('queryTablebaseMainline', async (data) => {
-        const fen = typeof data === 'string' ? data : data.fen;
-        const variant = typeof data === 'object' ? (data.variant || 'standard') : 'standard';
-
-        console.log(`[Tablebase] Received mainline query: ${variant} - ${fen.substring(0, 30)}...`);
-        try {
-            const result = await tablebaseModule.queryTablebaseMainline(fen, variant);
-            socket.emit('tablebase_mainline_response', result);
-        } catch (error) {
-            console.error('[Tablebase] Mainline error:', error);
-            socket.emit('tablebase_mainline_response', {
-                fen: fen,
-                variant: variant,
-                error: error.message,
-                mainline: [],
-            });
         }
     });
 
