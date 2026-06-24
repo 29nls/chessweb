@@ -59,7 +59,7 @@ const Controls = ({
         }
       })
       .catch(err => console.error('Error fetching engines:', err));
-  }, []);
+  }, [backendUrl]);
 
   const handleEngineChange = (e) => {
     const engineName = e.target.value;

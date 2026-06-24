@@ -136,7 +136,7 @@ function App() {
     socket.current.on('stockfish_error', (error) => toast.error(`Engine Error: ${error}`));
 
     return () => socket.current.disconnect();
-  }, [sendCommand, threads, hashSize, fen, isAutoMoveEnabled, userColor, makeAutoOpponentMove]);
+  }, [sendCommand, threads, hashSize, fen, isAutoMoveEnabled, userColor, makeAutoOpponentMove, backendUrl]);
 
   // Effect to trigger auto-move when enabled and it's opponent's turn
   useEffect(() => {
