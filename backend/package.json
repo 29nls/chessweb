@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "bash download-stockfish.sh"
+    "postinstall": "bash download-stockfish.sh",
     "postinstall-win": "echo Windows: Please download Stockfish manually to chessengines/stockfish-ubuntu-x86-64-avx2"
   },
   "engines": {
