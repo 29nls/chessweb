@@ -88,8 +88,9 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+
   useEffect(() => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
     socket.current = io(backendUrl);
 
     socket.current.on('connect', () => {
@@ -517,6 +518,7 @@ function App() {
             setIsAutoMoveEnabled={setIsAutoMoveEnabled}
             userColor={userColor}
             setUserColor={setUserColor}
+            backendUrl={backendUrl}
           />
         </Suspense>
       </main>

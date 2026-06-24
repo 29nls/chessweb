@@ -43,13 +43,14 @@ const Controls = ({
   engineSettings, setEngineSettings, sendCommand,
   onFenClick, onPgnClick,
   isAutoMoveEnabled, setIsAutoMoveEnabled,
-  userColor, setUserColor
+  userColor, setUserColor,
+  backendUrl
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/engines')
+    fetch(`${backendUrl}/api/engines`)
       .then(res => res.json())
       .then(data => {
         setEngines(data);
@@ -63,7 +64,7 @@ const Controls = ({
   const handleEngineChange = (e) => {
     const engineName = e.target.value;
     setSelectedEngine(engineName);
-    fetch('http://localhost:3001/api/select-engine', {
+    fetch(`${backendUrl}/api/select-engine`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ engineName })
