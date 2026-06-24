@@ -66,6 +66,12 @@ function App() {
   const pendingClassifyRef = useRef(false);
   const pendingSideRef = useRef(null);
   const pendingIsEngineRef = useRef(false);
+  const stockfishEvalRef = useRef(stockfishEval);
+
+  // Keep stockfishEvalRef in sync with stockfishEval state
+  useEffect(() => {
+    stockfishEvalRef.current = stockfishEval;
+  }, [stockfishEval]);
 
   const sendCommand = React.useCallback((command) => {
     console.log('Sending command:', command);
@@ -155,7 +161,7 @@ function App() {
           // Capture eval before engine makes its move
           const turn = fen.split(' ')[1];
           const sideThatMoved = turn; // Sisi yang gilirannya = sisi yang baru bergerak
-          evalBeforeRef.current = stockfishEval.score;
+          evalBeforeRef.current = stockfishEvalRef.current.score;
           pendingClassifyRef.current = true;
           pendingSideRef.current = sideThatMoved;
           pendingIsEngineRef.current = true;

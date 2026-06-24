@@ -1,6 +1,5 @@
 import React from 'react';
 import { List } from 'react-feather';
-import { LABELS } from './MoveClassification';
 import './MoveHistory.css';
 
 const MoveHistory = ({ moves, classifications }) => {
