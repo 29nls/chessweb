@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "chmod +x ../chessengines/stockfish-ubuntu-x86-64-avx2 2>/dev/null || true"
+    "postinstall": "bash download-stockfish.sh"
+    "postinstall-win": "echo Windows: Please download Stockfish manually to chessengines/stockfish-ubuntu-x86-64-avx2"
   },
   "engines": {
     "node": ">=18.0.0"
