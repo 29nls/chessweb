@@ -10,16 +10,23 @@ const escapeHtml = require('escape-html');
 
 const app = express();
 const server = http.createServer(app);
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:3000';
+
 const io = socketIo(server, {
     cors: {
-        origin: "http://localhost:3000",
+        origin: corsOrigin.split(',').map(s => s.trim()),
         methods: ["GET", "POST"]
     }
 });
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Health check endpoint for Render
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+});
 
 app.get('/api/engines', (req, res) => {
     fs.readdir(ENGINES_DIR, (err, files) => {
@@ -28,17 +35,21 @@ app.get('/api/engines', (req, res) => {
             return res.status(500).send({ message: 'Could not retrieve engine list.' });
         }
         const engineFiles = files
-            .filter(file => file.endsWith('.exe'))
+            .filter(file => file.endsWith('.exe') || !file.includes('.'))
             .map(file => escapeHtml(file));
         res.send(engineFiles);
     });
 });
 
 const ENGINES_DIR = path.join(__dirname, '../chessengines');
-const ALLOWED_ENGINES = ['stockfish-windows-x86-64-bmi2.exe'];
-let currentEnginePath = path.join(ENGINES_DIR, 'stockfish-windows-x86-64-bmi2.exe');
+const ALLOWED_ENGINES = ['stockfish-ubuntu-x86-64-avx2'];
+let currentEnginePath = path.join(ENGINES_DIR, 'stockfish-ubuntu-x86-64-avx2');
 
 let stockfishProcess;
+let stockfishRestartCount = 0;
+let stockfishRestartTimer = null;
+const MAX_STOCKFISH_RETRIES = 10;
+const STOCKFISH_RESTART_DELAY = 2000; // 2 seconds
 let outputBuffer = '';
 const game = new Chess();
 let fenHistory = [];
@@ -104,14 +115,38 @@ function startStockfish() {
         io.emit('stockfish_error', data.toString());
     });
 
-    stockfishProcess.on('close', (code) => {
+    const currentProcess = stockfishProcess;
+
+    currentProcess.on('close', (code) => {
         console.log(`Stockfish process exited with code ${code}`);
         io.emit('stockfish_status', { status: 'closed', code });
+
+        // If a new process was already started (e.g. by select-engine), skip restart
+        if (stockfishProcess !== currentProcess) return;
+
+        // Auto-restart with retry limit and delay
+        if (stockfishRestartCount < MAX_STOCKFISH_RETRIES) {
+            stockfishRestartCount++;
+            const delay = STOCKFISH_RESTART_DELAY * Math.min(stockfishRestartCount, 5);
+            console.log(`[Backend] Restarting Stockfish in ${delay}ms (attempt ${stockfishRestartCount}/${MAX_STOCKFISH_RETRIES})...`);
+            stockfishRestartTimer = setTimeout(() => {
+                console.log('[Backend] Attempting to restart Stockfish...');
+                startStockfish();
+            }, delay);
+        } else {
+            console.error(`[Backend] Stockfish failed to restart after ${MAX_STOCKFISH_RETRIES} attempts. Giving up.`);
+            io.emit('stockfish_status', { status: 'crashed_permanently', message: 'Max retries reached' });
+        }
     });
 
-    stockfishProcess.on('error', (err) => {
+    currentProcess.on('error', (err) => {
         console.error('Failed to start Stockfish process:', err);
         io.emit('stockfish_status', { status: 'error', message: err.message });
+    });
+
+    // Reset restart counter on successful start (any data from Stockfish = alive)
+    currentProcess.stdout.once('data', () => {
+        stockfishRestartCount = 0;
     });
 
     stockfishProcess.stdin.write('uci\n');
@@ -173,6 +208,13 @@ app.post('/api/select-engine', (req, res) => {
     } catch (e) {
         return res.status(400).send({ message: 'Invalid engine path.' });
     }
+
+    // Clear any pending restart and reset counter
+    if (stockfishRestartTimer) {
+        clearTimeout(stockfishRestartTimer);
+        stockfishRestartTimer = null;
+    }
+    stockfishRestartCount = 0;
 
     if (stockfishProcess) {
         stockfishProcess.kill();

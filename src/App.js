@@ -89,7 +89,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    socket.current = io('http://localhost:3001');
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+    socket.current = io(backendUrl);
 
     socket.current.on('connect', () => {
       console.log('Connected to backend');
