@@ -2,8 +2,8 @@
 /* eslint-disable no-undef */
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Chess } from 'chess.js';
-import { io } from 'socket.io-client';
 import { ToastContainer, toast } from 'react-toastify';
+import { createEngine } from './engine';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import Modal from './Modal';
@@ -60,26 +60,28 @@ function App() {
     return 2048;
   })();
 
-  const socket = useRef(null);
+  const engine = useRef(null);
   const analysisFenRef = useRef(null);
   const evalBeforeRef = useRef(null);
   const pendingClassifyRef = useRef(false);
   const pendingSideRef = useRef(null);
   const pendingIsEngineRef = useRef(false);
   const stockfishEvalRef = useRef(stockfishEval);
+  const fenRef = useRef(fen);
 
-  // Keep stockfishEvalRef in sync with stockfishEval state
+  // Keep refs in sync with state so the engine output handler (registered once)
+  // always reads the latest values without re-subscribing.
   useEffect(() => {
     stockfishEvalRef.current = stockfishEval;
-  }, [stockfishEval]);
+    fenRef.current = fen;
+  }, [stockfishEval, fen]);
 
   const sendCommand = React.useCallback((command) => {
     console.log('Sending command:', command);
-    console.log('Socket connected status:', socket.current && socket.current.connected); // Added log
-    if (socket.current && socket.current.connected) {
-      socket.current.emit('command', command);
+    if (engine.current) {
+      engine.current.sendCommand(command);
     } else {
-      console.warn('Socket not connected, command not sent:', command); // Added warning
+      console.warn('Engine not ready, command not sent:', command);
     }
   }, []);
 
@@ -102,89 +104,87 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
+// Engine mode: 'browser' (WASM, default — works on Vercel) or 'backend' (Socket.IO)
+  const engineMode = process.env.REACT_APP_ENGINE_MODE || 'browser';
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
+  // Initialize engine once (mode flag — default 'browser' for Vercel)
   useEffect(() => {
-    socket.current = io(backendUrl);
+    engine.current = createEngine(engineMode, backendUrl);
 
-    socket.current.on('connect', () => {
-      console.log('Connected to backend');
-      // Setup initial engine parameters
+    // Subscribe to engine output
+    const cleanupOutput = engine.current.onOutput((data) => {
+      if (data.type === 'info' && data.score) {
+        const newEval = {
+          score: data.score.value,
+          type: data.score.type,
+          depth: data.depth,
+          nodes: data.nodes,
+          nps: data.nps,
+          tbhits: data.tbhits,
+        };
+        setStockfishEval(newEval);
+
+        if (pendingClassifyRef.current) {
+          let beforeScore = evalBeforeRef.current;
+          let afterScore = data.score.value;
+
+          if (data.score.type === 'mate') {
+            beforeScore = beforeScore || 0;
+            afterScore = afterScore > 0 ? 10000 : -10000;
+          }
+
+          const side = pendingSideRef.current;
+          const isEngine = pendingIsEngineRef.current;
+
+          const loss = calculateLoss(beforeScore, afterScore, side);
+          const classification = classifyMove(
+            loss, beforeScore, afterScore, isEngine
+          );
+
+          setMoveClassifications((prev) => [...prev, classification]);
+          pendingClassifyRef.current = false;
+          pendingIsEngineRef.current = false;
+          pendingSideRef.current = null;
+        }
+      } else if (data.type === 'bestmove') {
+        console.log('Received bestmove from Stockfish:', data.move);
+
+        const turn = fenRef.current.split(' ')[1];
+        const sideThatMoved = turn;
+        evalBeforeRef.current = stockfishEvalRef.current.score;
+        pendingClassifyRef.current = true;
+        pendingSideRef.current = sideThatMoved;
+        pendingIsEngineRef.current = true;
+
+        const gameCopy = new Chess(fenRef.current);
+        const moveResult = gameCopy.move(data.move, { sloppy: true });
+        if (moveResult) {
+          console.log('Bestmove applied successfully. New FEN:', gameCopy.fen());
+          setFen(gameCopy.fen());
+          setGame(gameCopy);
+          if (moveResult.san) setMoves((prev) => [...prev, moveResult.san]);
+          setLastMove({ from: moveResult.from, to: moveResult.to });
+        } else {
+          console.warn('Failed to apply bestmove:', data.move);
+        }
+      }
+    });
+
+    // On connect: configure engine
+    engine.current.onConnect(() => {
+      console.log(`Engine connected (${engineMode})`);
       sendCommand('uci');
       sendCommand(`setoption name Threads value ${threads}`);
       sendCommand(`setoption name Hash value ${hashSize}`);
       sendCommand('isready');
     });
 
-    socket.current.on('stockfish_output', (data) => {
-      console.log('Received Stockfish output:', data); // Added log
-        if (data.type === 'info' && data.score) {
-          const newEval = {
-            score: data.score.value,
-            type: data.score.type,
-            depth: data.depth,
-            nodes: data.nodes,
-            nps: data.nps,
-            tbhits: data.tbhits
-          };
-          setStockfishEval(newEval);
-
-          // Classify pending move when Stockfish evaluates the new position
-          if (pendingClassifyRef.current) {
-            // Handle both cp and mate score types
-            let beforeScore = evalBeforeRef.current;
-            let afterScore = data.score.value;
-
-            if (data.score.type === 'mate') {
-              // Convert mate scores to approximate centipawn value for comparison
-              // Mate in N for White = large positive, for Black = large negative
-              beforeScore = beforeScore || 0;
-              afterScore = afterScore > 0 ? 10000 : -10000;
-            }
-
-            const side = pendingSideRef.current;
-            const isEngine = pendingIsEngineRef.current;
-
-            const loss = calculateLoss(beforeScore, afterScore, side);
-            const classification = classifyMove(
-              loss, beforeScore, afterScore, isEngine
-            );
-
-            setMoveClassifications(prev => [...prev, classification]);
-            pendingClassifyRef.current = false;
-            pendingIsEngineRef.current = false;
-            pendingSideRef.current = null;
-          }
-        } else if (data.type === 'bestmove') {
-          console.log('Received bestmove from Stockfish:', data.move);
-
-          // Capture eval before engine makes its move
-          const turn = fen.split(' ')[1];
-          const sideThatMoved = turn; // Sisi yang gilirannya = sisi yang baru bergerak
-          evalBeforeRef.current = stockfishEvalRef.current.score;
-          pendingClassifyRef.current = true;
-          pendingSideRef.current = sideThatMoved;
-          pendingIsEngineRef.current = true;
-
-          // Execute engine move
-          const gameCopy = new Chess(fen);
-          const moveResult = gameCopy.move(data.move, { sloppy: true });
-          if (moveResult) {
-            console.log('Bestmove applied successfully. New FEN:', gameCopy.fen());
-            setFen(gameCopy.fen());
-            setGame(gameCopy);
-            if (moveResult.san) setMoves(prev => [...prev, moveResult.san]);
-            setLastMove({ from: moveResult.from, to: moveResult.to });
-          } else {
-            console.warn('Failed to apply bestmove:', data.move);
-          }
-        }
-    });
-
-    socket.current.on('stockfish_error', (error) => toast.error(`Engine Error: ${error}`));
-
-    return () => socket.current.disconnect();
-  }, [sendCommand, threads, hashSize, fen, isAutoMoveEnabled, userColor, makeAutoOpponentMove, backendUrl]);
+    return () => {
+      cleanupOutput();
+      engine.current.disconnect();
+    };
+  }, [engineMode, backendUrl, threads, hashSize, sendCommand]);
 
   // Effect to trigger auto-move when enabled and it's opponent's turn
   useEffect(() => {
@@ -587,6 +587,7 @@ function App() {
             userColor={userColor}
             setUserColor={setUserColor}
             backendUrl={backendUrl}
+            engineMode={engineMode}
           />
         </Suspense>
 

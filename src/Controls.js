@@ -44,34 +44,41 @@ const Controls = ({
   onFenClick, onPgnClick,
   isAutoMoveEnabled, setIsAutoMoveEnabled,
   userColor, setUserColor,
-  backendUrl
+  backendUrl,
+  engineMode
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
 
   useEffect(() => {
-    fetch(`${backendUrl}/api/engines`)
-      .then(res => res.json())
-      .then(data => {
-        setEngines(data);
-        if (data.length > 0) {
-          setSelectedEngine(data[0]);
-        }
-      })
-      .catch(err => console.error('Error fetching engines:', err));
-  }, [backendUrl]);
+    if (engineMode === 'backend') {
+      fetch(`${backendUrl}/api/engines`)
+        .then((res) => res.json())
+        .then((data) => {
+          setEngines(data);
+          if (data.length > 0) setSelectedEngine(data[0]);
+        })
+        .catch((err) => console.error('Error fetching engines:', err));
+    } else {
+      // Browser mode: single WASM engine, no selection needed
+      setEngines(['Stockfish 16 (WASM)']);
+      setSelectedEngine('Stockfish 16 (WASM)');
+    }
+  }, [backendUrl, engineMode]);
 
   const handleEngineChange = (e) => {
     const engineName = e.target.value;
     setSelectedEngine(engineName);
-    fetch(`${backendUrl}/api/select-engine`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ engineName })
-    })
-    .then(res => res.json())
-    .then(data => console.log(data.message))
-    .catch(err => console.error('Error selecting engine:', err));
+    if (engineMode === 'backend') {
+      fetch(`${backendUrl}/api/select-engine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engineName }),
+      })
+        .then((res) => res.json())
+        .then((data) => console.log(data.message))
+        .catch((err) => console.error('Error selecting engine:', err));
+    }
   };
   
   const handleThreadsChange = (e) => {
