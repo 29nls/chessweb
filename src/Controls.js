@@ -61,8 +61,8 @@ const Controls = ({
         .catch((err) => console.error('Error fetching engines:', err));
     } else {
       // Browser mode: single WASM engine, no selection needed
-      setEngines(['Stockfish 16 (WASM)']);
-      setSelectedEngine('Stockfish 16 (WASM)');
+      setEngines(['Stockfish 18 (WASM)']);
+      setSelectedEngine('Stockfish 18 (WASM)');
     }
   }, [backendUrl, engineMode]);
 
