@@ -92,14 +92,11 @@ function App() {
     }
   }, [fen, isDepthAnalysisEnabled, depth, movetime, sendCommand]);
 
-  const makeAutoOpponentMoveRef = useRef(makeAutoOpponentMove);
-
   // Keep refs in sync with state so the engine output handler (registered once)
   // always reads the latest values without re-subscribing.
   useEffect(() => {
     stockfishEvalRef.current = stockfishEval;
     fenRef.current = fen;
-    makeAutoOpponentMoveRef.current = makeAutoOpponentMove;
   }, [stockfishEval, fen, makeAutoOpponentMove]);
 
   useEffect(() => {
@@ -193,21 +190,6 @@ function App() {
       engine.current.disconnect();
     };
   }, [engineMode, backendUrl, threads, hashSize, sendCommand]);
-
-  // Effect to trigger auto-move when enabled and it's opponent's turn.
-  // Uses a ref for makeAutoOpponentMove so this effect does not re-fire (and
-  // send a duplicate `go`) every time `fen` changes and recreates the callback.
-  useEffect(() => {
-    if (isAutoMoveEnabled) {
-      const turn = fen.split(' ')[1];
-      const playerIsWhite = userColor === 'white'; // Use userColor to determine player's side
-      const isOpponentTurn = (playerIsWhite && turn === 'b') || (!playerIsWhite && turn === 'w');
-
-      if (isOpponentTurn) {
-        makeAutoOpponentMoveRef.current();
-      }
-    }
-  }, [isAutoMoveEnabled, fen, userColor]);
 
   // Calculate evaluation bar height
   let whiteHeight = 50;

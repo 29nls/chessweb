@@ -1,0 +1,5 @@
+[   11170ms] [LOG] Engine connected (browser) @ http://localhost:4173/static/js/main.c7686f5c.js:1
+[   11170ms] [LOG] Sending command: uci @ http://localhost:4173/static/js/main.c7686f5c.js:1
+[   11171ms] [LOG] Sending command: setoption name Threads value 1 @ http://localhost:4173/static/js/main.c7686f5c.js:1
+[   11171ms] [LOG] Sending command: setoption name Hash value 64 @ http://localhost:4173/static/js/main.c7686f5c.js:1
+[   11171ms] [LOG] Sending command: isready @ http://localhost:4173/static/js/main.c7686f5c.js:1
