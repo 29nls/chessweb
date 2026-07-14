@@ -1,5 +1,6 @@
 import React from 'react';
-import './SkeletonLoader.css'; // We'll create this if needed, or rely on index.css
+// Skeleton styles (.skeleton, .animate-pulse) are defined in index.css
+
 
 export const BoardSkeleton = () => (
   <div className="skeleton animate-pulse" style={{ width: '100%', aspectRatio: '1/1' }} aria-busy="true" aria-label="Loading chessboard" />
