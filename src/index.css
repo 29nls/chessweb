@@ -21,6 +21,10 @@ body {
   --border-color: #DCDFE3;
   --shadow-color: rgba(0, 0, 0, 0.08);
 
+  /* Online Mode */
+  --online-accent: #10b981;
+  --danger-color: #ef4444;
+
   /* Chessboard Colors */
   --board-light: #D1D5DB; /* Cool Gray 300 */
   --board-dark: #6B7280;  /* Cool Gray 500 */
@@ -36,6 +40,10 @@ body {
   --accent-primary-hover: #85C1E9; /* Lighter Soft Blue */
   --border-color: #3A3B3C;
   --shadow-color: rgba(0, 0, 0, 0.25);
+
+  /* Online Mode */
+  --online-accent: #34d399;
+  --danger-color: #f87171;
 
   /* Chessboard Colors */
   --board-light: #4B5563; /* Cool Gray 600 */

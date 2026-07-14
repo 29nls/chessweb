@@ -1,14 +1,16 @@
 /* eslint-disable no-undef */
 /* eslint-disable no-undef */
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Chess } from 'chess.js';
 import { ToastContainer, toast } from 'react-toastify';
 import { createEngine } from './engine';
+import { useOnlineGame } from './hooks/useOnlineGame';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import Modal from './Modal';
 import { calculateLoss, classifyMove, LABELS } from './MoveClassification';
 import MoveHistory from './MoveHistory';
+import OnlineLobby, { OnlineStatusBar } from './OnlineLobby';
 
 // Lazy load components for better initial load time
 const EvaluationSection = React.lazy(() => import('./EvaluationSection'));
@@ -59,6 +61,11 @@ function App() {
     }
     return 2048;
   })();
+
+  // ─── Online Mode ───
+  const [showLobby, setShowLobby] = useState(false);
+  const online = useOnlineGame();
+  const isOnlineMode = online.gameStatus === 'playing' || online.gameStatus === 'waiting';
 
   const engine = useRef(null);
   const analysisFenRef = useRef(null);
@@ -191,6 +198,80 @@ function App() {
     };
   }, [engineMode, backendUrl, threads, hashSize, sendCommand]);
 
+  // ─── Online: Register move received callback ───
+  const applyOpponentMove = useCallback((payload) => {
+    const gameCopy = new Chess(fenRef.current);
+    const moveOptions = { from: payload.from, to: payload.to };
+    if (payload.promotion) moveOptions.promotion = payload.promotion;
+
+    try {
+      const moveResult = gameCopy.move(moveOptions);
+      if (moveResult) {
+        const newFen = gameCopy.fen();
+        setFen(newFen);
+        setGame(gameCopy);
+        setLastMove({ from: moveResult.from, to: moveResult.to });
+
+        // Update move history
+        setMoveHistory(prev => {
+          const newHistory = [...prev, newFen];
+          setHistoryPointer(newHistory.length - 1);
+          return newHistory;
+        });
+
+        if (moveResult.san) setMoves(prev => [...prev, moveResult.san]);
+
+        // Check for game-ending conditions
+        if (gameCopy.isCheckmate()) {
+          const winner = gameCopy.turn() === 'w' ? 'black' : 'white';
+          online.broadcastGameOver(winner, 'Checkmate!');
+        } else if (gameCopy.isDraw()) {
+          let reason = 'Draw';
+          if (gameCopy.isStalemate()) reason = 'Stalemate';
+          else if (gameCopy.isThreefoldRepetition()) reason = 'Threefold repetition';
+          else if (gameCopy.isInsufficientMaterial()) reason = 'Insufficient material';
+          online.broadcastGameOver('draw', reason);
+        }
+
+        // Update engine position for analysis
+        sendCommand(`position fen ${newFen}`);
+      }
+    } catch (err) {
+      console.warn('Failed to apply opponent move:', err);
+    }
+  }, [online, sendCommand]);
+
+  useEffect(() => {
+    online.onMoveReceived(applyOpponentMove);
+  }, [online, applyOpponentMove]);
+
+  // ─── Online: Reset board when game starts ───
+  useEffect(() => {
+    online.onGameStart(() => {
+      const newGame = new Chess();
+      const initialFen = newGame.fen();
+      setGame(newGame);
+      setFen(initialFen);
+      setMoves([]);
+      setLastMove(null);
+      setStockfishEval({ score: null, type: 'cp' });
+      setMoveHistory([initialFen]);
+      setHistoryPointer(0);
+      setMoveClassifications([]);
+      pendingClassifyRef.current = false;
+
+      // Set board orientation and user color to match assigned color
+      if (online.playerColor) {
+        setBoardOrientation(online.playerColor);
+        setUserColor(online.playerColor);
+      }
+
+      setShowLobby(false);
+      toast.success('🎮 Game started! You play as ' + (online.playerColor || 'white'));
+      sendCommand('ucinewgame');
+    });
+  }, [online, sendCommand]);
+
   // Calculate evaluation bar height
   let whiteHeight = 50;
   if (stockfishEval.score !== null) {
@@ -208,6 +289,16 @@ function App() {
   }
 
   const onDrop = ({ sourceSquare, targetSquare }) => {
+    // ─── Online mode: only allow moves on your turn with your color ───
+    if (isOnlineMode && online.gameStatus === 'playing') {
+      const currentTurn = fen.split(' ')[1]; // 'w' or 'b'
+      const myTurnChar = online.playerColor === 'white' ? 'w' : 'b';
+      if (currentTurn !== myTurnChar) {
+        toast.warning("It's not your turn!");
+        return false;
+      }
+    }
+
     const gameCopy = new Chess(fen);
     const moveOptions = { from: sourceSquare, to: targetSquare };
 
@@ -259,6 +350,29 @@ function App() {
 
     // Update engine
     sendCommand(`position fen ${newFen}`);
+
+    // ─── Online mode: send move to opponent via Supabase ───
+    if (isOnlineMode && online.gameStatus === 'playing') {
+      online.sendMove({
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: moveOptions.promotion || null,
+        san: move.san,
+      });
+
+      // Check for game-ending conditions after our move
+      if (gameCopy.isCheckmate()) {
+        const winner = gameCopy.turn() === 'w' ? 'black' : 'white';
+        online.broadcastGameOver(winner, 'Checkmate!');
+      } else if (gameCopy.isDraw()) {
+        let reason = 'Draw';
+        if (gameCopy.isStalemate()) reason = 'Stalemate';
+        else if (gameCopy.isThreefoldRepetition()) reason = 'Threefold repetition';
+        else if (gameCopy.isInsufficientMaterial()) reason = 'Insufficient material';
+        online.broadcastGameOver('draw', reason);
+      }
+    }
+
     return true;
   };
 
@@ -529,6 +643,33 @@ function App() {
     }
   };
 
+  // ─── Online lobby handlers ───
+  const handleOpenLobby = () => setShowLobby(true);
+  const handleCloseLobby = () => {
+    if (online.gameStatus === 'idle') {
+      setShowLobby(false);
+    }
+  };
+  const handleCreateGame = () => {
+    online.createGame();
+  };
+  const handleJoinGame = (code) => {
+    online.joinGame(code);
+  };
+  const handleResign = () => {
+    online.resign();
+  };
+  const handleLeaveOnlineGame = () => {
+    online.leaveGame();
+    setShowLobby(false);
+  };
+
+  // Determine whose turn it is in online mode
+  const currentTurn = fen.split(' ')[1]; // 'w' or 'b'
+  const isMyTurn = online.playerColor
+    ? (online.playerColor === 'white' ? currentTurn === 'w' : currentTurn === 'b')
+    : false;
+
   if (isLoading) {
     // You can add a loading screen component here if you have one
     return <div>Loading...</div>;
@@ -549,17 +690,30 @@ function App() {
           />
         </Suspense>
 
-        <Suspense fallback={<div className="chessboard-container-wrapper">Loading...</div>}>
-          <ChessboardContainer
-            fen={fen}
-            onDrop={onDrop}
-            boardOrientation={boardOrientation}
-            lastMove={lastMove}
-            isAutoMoveEnabled={isAutoMoveEnabled}
-            makeAutoOpponentMove={makeAutoOpponentMove}
-            userColor={userColor}
+        <div style={{ gridArea: 'chessboard' }}>
+          {/* Online Status Bar */}
+          <OnlineStatusBar
+            playerColor={online.playerColor}
+            isMyTurn={isMyTurn}
+            opponentConnected={online.opponentConnected}
+            onResign={handleResign}
+            onLeaveGame={handleLeaveOnlineGame}
+            gameStatus={online.gameStatus}
           />
-        </Suspense>
+
+          <Suspense fallback={<div className="chessboard-container-wrapper">Loading...</div>}>
+            <ChessboardContainer
+              fen={fen}
+              onDrop={onDrop}
+              boardOrientation={boardOrientation}
+              lastMove={lastMove}
+              isAutoMoveEnabled={isAutoMoveEnabled}
+              makeAutoOpponentMove={makeAutoOpponentMove}
+              userColor={userColor}
+              isOnlineMode={isOnlineMode}
+            />
+          </Suspense>
+        </div>
 
         <Suspense fallback={<div className="panel">Loading...</div>}>
           <Controls
@@ -580,6 +734,8 @@ function App() {
             setUserColor={setUserColor}
             backendUrl={backendUrl}
             engineMode={engineMode}
+            isOnlineMode={isOnlineMode}
+            onOpenLobby={handleOpenLobby}
           />
         </Suspense>
 
@@ -602,6 +758,22 @@ function App() {
         draggable 
         pauseOnHover 
         theme="dark"
+      />
+
+      {/* Online Lobby Modal */}
+      <OnlineLobby
+        isOpen={showLobby}
+        onClose={handleCloseLobby}
+        gameStatus={online.gameStatus}
+        gameCode={online.gameCode}
+        playerColor={online.playerColor}
+        opponentConnected={online.opponentConnected}
+        gameResult={online.gameResult}
+        error={online.error}
+        onCreateGame={handleCreateGame}
+        onJoinGame={handleJoinGame}
+        onResign={handleResign}
+        onLeaveGame={handleLeaveOnlineGame}
       />
 
       <Modal isOpen={showFenModal} onClose={() => setShowFenModal(false)} title="FEN">

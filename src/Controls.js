@@ -8,7 +8,8 @@ import {
   Download,
   Play,
   User,
-  Cpu
+  Cpu,
+  Globe
 } from 'react-feather';
 
 const Section = ({ title, icon, children }) => (
@@ -45,7 +46,9 @@ const Controls = ({
   isAutoMoveEnabled, setIsAutoMoveEnabled,
   userColor, setUserColor,
   backendUrl,
-  engineMode
+  engineMode,
+  isOnlineMode = false,
+  onOpenLobby,
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
@@ -114,7 +117,7 @@ const Controls = ({
       <Section title="Player" icon={<User size={20} />}>
         <div className="control-group">
           <label htmlFor="userColor">Play as</label>
-          <select id="userColor" value={userColor} onChange={(e) => setUserColor(e.target.value)}>
+          <select id="userColor" value={userColor} onChange={(e) => setUserColor(e.target.value)} disabled={isOnlineMode}>
             <option value="white">White</option>
             <option value="black">Black</option>
           </select>
@@ -124,6 +127,20 @@ const Controls = ({
           checked={isAutoMoveEnabled}
           onChange={(e) => setIsAutoMoveEnabled(e.target.checked)}
         />
+      </Section>
+
+      <Section title="Online" icon={<Globe size={20} />}>
+        <button
+          className="lobby-btn-online"
+          onClick={onOpenLobby}
+        >
+          <Globe size={18} />
+          {isOnlineMode ? (
+            <><span className="online-mode-badge"><span className="dot" /> LIVE</span></>
+          ) : (
+            'Play Online'
+          )}
+        </button>
       </Section>
 
       <Section title="Engine" icon={<Cpu size={20} />}>

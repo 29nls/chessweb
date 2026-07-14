@@ -8,11 +8,15 @@ const ChessboardContainer = ({
   lastMove,
   isAutoMoveEnabled,
   makeAutoOpponentMove,
-  userColor // New prop for user's playing color
+  userColor, // New prop for user's playing color
+  isOnlineMode = false, // Online mode: disable engine auto-move
 }) => {
   const prevFenRef = useRef(fen);
 
   useEffect(() => {
+    // Disable auto-move in online mode — opponent moves come via Supabase
+    if (isOnlineMode) return;
+
     // Only run if the FEN has changed and auto-move is enabled.
     if (isAutoMoveEnabled && fen !== prevFenRef.current) {
       const turn = fen.split(' ')[1];
@@ -30,7 +34,7 @@ const ChessboardContainer = ({
     }
     // Update the ref for the next render
     prevFenRef.current = fen;
-  }, [fen, isAutoMoveEnabled, makeAutoOpponentMove, userColor]);
+  }, [fen, isAutoMoveEnabled, makeAutoOpponentMove, userColor, isOnlineMode]);
 
   return (
     <div className="chessboard-container-wrapper" data-testid="chessboard">
