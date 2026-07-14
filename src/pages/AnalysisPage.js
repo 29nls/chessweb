@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
@@ -32,7 +32,7 @@ export default function AnalysisPage() {
   const [showPgnModal, setShowPgnModal] = useState(false);
   const [fenInput, setFenInput] = useState('');
   const [pgnInput, setPgnInput] = useState('');
-  const [pgnHeaders, setPgnHeaders] = useState({
+  const [pgnHeaders] = useState({
     Event: '?',
     Site: '?',
     Date: new Date().toISOString().slice(0,10).replace(/-/g, '.'),
