@@ -38,7 +38,7 @@ const EvaluationSection = ({ evaluation }) => {
     <div className="panel evaluation-section">
       <div className="main-evaluation">
         <BarChart2 size={28} />
-        <h2>{getFormattedEval()}</h2>
+        <h2 data-testid="evaluation-value">{getFormattedEval()}</h2>
       </div>
       <div className="evaluation-details">
         <EvalItem icon={<ChevronsUp size={20} />} label="Depth" value={evaluation.depth || 'N/A'} />

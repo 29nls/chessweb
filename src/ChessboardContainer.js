@@ -33,7 +33,7 @@ const ChessboardContainer = ({
   }, [fen, isAutoMoveEnabled, makeAutoOpponentMove, userColor]);
 
   return (
-    <div className="chessboard-container-wrapper">
+    <div className="chessboard-container-wrapper" data-testid="chessboard">
       <div className="chessboard-container">
         <Chessboard
           id="graphite-chessboard"

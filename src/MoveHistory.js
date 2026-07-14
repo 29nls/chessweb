@@ -55,7 +55,7 @@ const MoveHistory = ({ moves, classifications }) => {
         <List size={18} />
         Move History
       </h3>
-      <div className="move-history-scroll">
+        <div className="move-history-scroll" data-testid="move-list">
         <div className="move-row" style={{ fontWeight: 600, fontSize: '0.75em', color: 'var(--text-secondary)' }}>
           <div className="move-number">#</div>
           <div>White</div>
@@ -65,13 +65,13 @@ const MoveHistory = ({ moves, classifications }) => {
           <div className="move-row" key={row.number}>
             <div className="move-number">{row.number}.</div>
             <div className="move-cell">
-              <span className="move-san">{row.white.san}</span>
+              <span className="move-san" data-testid="move-san">{row.white.san}</span>
               {renderBadge(row.white.classification)}
             </div>
             <div className="move-cell">
               {row.black ? (
                 <>
-                  <span className="move-san">{row.black.san}</span>
+                  <span className="move-san" data-testid="move-san">{row.black.san}</span>
                   {renderBadge(row.black.classification)}
                 </>
               ) : (
