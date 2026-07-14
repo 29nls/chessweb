@@ -686,14 +686,14 @@ function App() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>ChessWeb</h1>
-      </header>
-
       {!hasChosenMode ? (
         <LandingScreen onSelectMode={handleSelectMode} />
       ) : (
-        <main className={`App-body ${isOnlineMode ? 'online-mode' : ''}`}>
+        <>
+          <header className="App-header">
+            <h1>ChessWeb</h1>
+          </header>
+          <main className={`App-body ${isOnlineMode ? 'online-mode' : ''}`}>
         {!isOnlineMode && (
           <Suspense fallback={<div className="panel">Loading...</div>}>
             <EvaluationSection
@@ -764,6 +764,7 @@ function App() {
           </Suspense>
         )}
       </main>
+      </>
       )}
 
       <ToastContainer 
