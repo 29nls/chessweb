@@ -8,8 +8,7 @@ import {
   Download,
   Play,
   User,
-  Cpu,
-  Globe
+  Cpu
 } from 'react-feather';
 
 const Section = ({ title, icon, children }) => (
