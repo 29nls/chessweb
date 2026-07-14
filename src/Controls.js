@@ -129,20 +129,6 @@ const Controls = ({
         />
       </Section>
 
-      <Section title="Online" icon={<Globe size={20} />}>
-        <button
-          className="lobby-btn-online"
-          onClick={onOpenLobby}
-        >
-          <Globe size={18} />
-          {isOnlineMode ? (
-            <><span className="online-mode-badge"><span className="dot" /> LIVE</span></>
-          ) : (
-            'Play Online'
-          )}
-        </button>
-      </Section>
-
       <Section title="Engine" icon={<Cpu size={20} />}>
         <div className="control-group">
           <label htmlFor="engine-select">Chess Engine</label>

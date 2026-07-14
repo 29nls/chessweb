@@ -61,6 +61,10 @@
   border-color: var(--online-accent);
 }
 
+.landing-card.spectator:hover {
+  border-color: var(--accent-secondary);
+}
+
 .card-icon {
   width: 80px;
   height: 80px;
@@ -81,6 +85,10 @@
 
 .landing-card.online:hover .card-icon {
   background: var(--online-accent);
+}
+
+.landing-card.spectator:hover .card-icon {
+  background: var(--accent-secondary);
 }
 
 .landing-card h2 {

@@ -66,6 +66,7 @@ function App() {
   // ─── Online Mode ───
   const [hasChosenMode, setHasChosenMode] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
+  const [lobbyTab, setLobbyTab] = useState('play'); // 'play' | 'spectate'
   const online = useOnlineGame();
   const isOnlineMode = online.gameStatus === 'playing' || online.gameStatus === 'waiting';
 
@@ -247,6 +248,31 @@ function App() {
     online.onMoveReceived(applyOpponentMove);
   }, [online, applyOpponentMove]);
 
+  // ─── Online: State Synchronization for Spectators ───
+  useEffect(() => {
+    // When a spectator requests state, send the current game state to them
+    online.onStateRequested((spectatorId) => {
+      online.sendSyncState(spectatorId, fenRef.current, moves, moveHistory);
+    });
+
+    // When we (as a spectator) receive the state from a player
+    online.onSyncStateReceived((syncedFen, syncedMoves, syncedHistory) => {
+      const newGame = new Chess(syncedFen);
+      setGame(newGame);
+      setFen(syncedFen);
+      setMoves(syncedMoves || []);
+      setMoveHistory(syncedHistory || [syncedFen]);
+      setHistoryPointer(syncedHistory ? syncedHistory.length - 1 : 0);
+      setStockfishEval({ score: null, type: 'cp' });
+      setLastMove(null);
+      setMoveClassifications([]);
+      setShowLobby(false);
+      setBoardOrientation('white');
+      toast.success('Joined as Spectator');
+      sendCommand(`position fen ${syncedFen}`);
+    });
+  }, [online, moves, moveHistory, sendCommand]);
+
   // ─── Online: Reset board when game starts ───
   useEffect(() => {
     online.onGameStart(() => {
@@ -293,6 +319,11 @@ function App() {
   const onDrop = ({ sourceSquare, targetSquare }) => {
     // ─── Online mode: only allow moves on your turn with your color ───
     if (isOnlineMode && online.gameStatus === 'playing') {
+      if (online.playerColor === 'spectator') {
+        toast.warning("You are spectating!");
+        return false;
+      }
+      
       const currentTurn = fen.split(' ')[1]; // 'w' or 'b'
       const myTurnChar = online.playerColor === 'white' ? 'w' : 'b';
       if (currentTurn !== myTurnChar) {
@@ -680,6 +711,10 @@ function App() {
   const handleSelectMode = (mode) => {
     setHasChosenMode(true);
     if (mode === 'online') {
+      setLobbyTab('play');
+      setShowLobby(true);
+    } else if (mode === 'spectate') {
+      setLobbyTab('spectate');
       setShowLobby(true);
     }
   };
@@ -725,6 +760,7 @@ function App() {
               makeAutoOpponentMove={makeAutoOpponentMove}
               userColor={userColor}
               isOnlineMode={isOnlineMode}
+              isSpectator={online.playerColor === 'spectator'}
             />
           </Suspense>
         </div>
@@ -783,6 +819,7 @@ function App() {
       {/* Online Lobby Modal */}
       <OnlineLobby
         isOpen={showLobby}
+        initialTab={lobbyTab}
         onClose={handleCloseLobby}
         gameStatus={online.gameStatus}
         gameCode={online.gameCode}
@@ -792,6 +829,7 @@ function App() {
         error={online.error}
         onCreateGame={handleCreateGame}
         onJoinGame={handleJoinGame}
+        onJoinSpectator={online.joinAsSpectator}
         onResign={handleResign}
         onLeaveGame={handleLeaveOnlineGame}
       />

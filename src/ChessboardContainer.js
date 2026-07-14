@@ -10,6 +10,7 @@ const ChessboardContainer = ({
   makeAutoOpponentMove,
   userColor, // New prop for user's playing color
   isOnlineMode = false, // Online mode: disable engine auto-move
+  isSpectator = false,
 }) => {
   const prevFenRef = useRef(fen);
 
@@ -46,7 +47,7 @@ const ChessboardContainer = ({
             onPieceDrop: onDrop,
             boardOrientation: boardOrientation,
             animationDuration: 300,
-            arePiecesDraggable: true,
+            arePiecesDraggable: !isSpectator,
             allowDragOffBoard: false,
             customDarkSquareStyle: { backgroundColor: 'var(--board-dark)' },
             customLightSquareStyle: { backgroundColor: 'var(--board-light)' },

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, Globe } from 'react-feather';
+import { Cpu, Globe, Eye } from 'react-feather';
 import './LandingScreen.css';
 
 const LandingScreen = ({ onSelectMode }) => {
@@ -30,6 +30,17 @@ const LandingScreen = ({ onSelectMode }) => {
           <p>
             Challenge a friend to a 1v1 match in real-time. Just create a game 
             and share your 6-character invite code.
+          </p>
+        </div>
+
+        <div className="landing-card spectator" onClick={() => onSelectMode('spectate')}>
+          <div className="card-icon">
+            <Eye size={40} />
+          </div>
+          <h2>Watch Live</h2>
+          <p>
+            Spectate ongoing matches in real-time. Join any active game 
+            anonymously without disturbing the players.
           </p>
         </div>
       </div>
