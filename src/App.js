@@ -68,15 +68,6 @@ function App() {
   const pendingIsEngineRef = useRef(false);
   const stockfishEvalRef = useRef(stockfishEval);
   const fenRef = useRef(fen);
-  const makeAutoOpponentMoveRef = useRef(makeAutoOpponentMove);
-
-  // Keep refs in sync with state so the engine output handler (registered once)
-  // always reads the latest values without re-subscribing.
-  useEffect(() => {
-    stockfishEvalRef.current = stockfishEval;
-    fenRef.current = fen;
-    makeAutoOpponentMoveRef.current = makeAutoOpponentMove;
-  }, [stockfishEval, fen, makeAutoOpponentMove]);
 
   const sendCommand = React.useCallback((command) => {
     console.log('Sending command:', command);
@@ -100,6 +91,16 @@ function App() {
       sendCommand(`go movetime ${movetime}`);
     }
   }, [fen, isDepthAnalysisEnabled, depth, movetime, sendCommand]);
+
+  const makeAutoOpponentMoveRef = useRef(makeAutoOpponentMove);
+
+  // Keep refs in sync with state so the engine output handler (registered once)
+  // always reads the latest values without re-subscribing.
+  useEffect(() => {
+    stockfishEvalRef.current = stockfishEval;
+    fenRef.current = fen;
+    makeAutoOpponentMoveRef.current = makeAutoOpponentMove;
+  }, [stockfishEval, fen, makeAutoOpponentMove]);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1500); // Shorter loading time
