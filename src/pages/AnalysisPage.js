@@ -420,8 +420,7 @@ export default function AnalysisPage() {
 
   return (
     <div className="App">
-      <header className="App-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 20px' }}>
-        <h1>ChessWeb - Analysis</h1>
+      <header className="App-header" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 20px', height: '60px' }}>
         <button onClick={() => navigate('/')} className="button-secondary" style={{ height: '40px' }}>
           Back to Home
         </button>

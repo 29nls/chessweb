@@ -198,8 +198,10 @@ export default function OnlinePage() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>ChessWeb - Online</h1>
+      <header className="App-header" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 20px', height: '60px' }}>
+        <button onClick={handleLeaveOnlineGame} className="button-secondary" style={{ height: '40px' }}>
+          Back to Home
+        </button>
       </header>
       <main className="App-body online-mode">
         <div style={{ gridArea: 'chessboard' }}>
