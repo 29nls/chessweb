@@ -246,7 +246,6 @@ const OnlineLobby = ({
           )}
 
         </div>
-        </div>
       </AccessibleDialog>
     );
   }
