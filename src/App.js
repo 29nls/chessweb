@@ -11,6 +11,7 @@ import Modal from './Modal';
 import { calculateLoss, classifyMove, LABELS } from './MoveClassification';
 import MoveHistory from './MoveHistory';
 import OnlineLobby, { OnlineStatusBar } from './OnlineLobby';
+import LandingScreen from './LandingScreen';
 
 // Lazy load components for better initial load time
 const EvaluationSection = React.lazy(() => import('./EvaluationSection'));
@@ -63,6 +64,7 @@ function App() {
   })();
 
   // ─── Online Mode ───
+  const [hasChosenMode, setHasChosenMode] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
   const online = useOnlineGame();
   const isOnlineMode = online.gameStatus === 'playing' || online.gameStatus === 'waiting';
@@ -675,20 +677,32 @@ function App() {
     return <div>Loading...</div>;
   }
 
+  const handleSelectMode = (mode) => {
+    setHasChosenMode(true);
+    if (mode === 'online') {
+      setShowLobby(true);
+    }
+  };
+
   return (
     <div className="App">
       <header className="App-header">
         <h1>ChessWeb</h1>
       </header>
 
-      <main className="App-body">
-        <Suspense fallback={<div className="panel">Loading...</div>}>
-          <EvaluationSection
-            evaluation={stockfishEval}
-            whiteHeight={whiteHeight}
-            isDepthAnalysisEnabled={isDepthAnalysisEnabled}
-          />
-        </Suspense>
+      {!hasChosenMode ? (
+        <LandingScreen onSelectMode={handleSelectMode} />
+      ) : (
+        <main className={`App-body ${isOnlineMode ? 'online-mode' : ''}`}>
+        {!isOnlineMode && (
+          <Suspense fallback={<div className="panel">Loading...</div>}>
+            <EvaluationSection
+              evaluation={stockfishEval}
+              whiteHeight={whiteHeight}
+              isDepthAnalysisEnabled={isDepthAnalysisEnabled}
+            />
+          </Suspense>
+        )}
 
         <div style={{ gridArea: 'chessboard' }}>
           {/* Online Status Bar */}
@@ -715,37 +729,42 @@ function App() {
           </Suspense>
         </div>
 
-        <Suspense fallback={<div className="panel">Loading...</div>}>
-          <Controls
-            onReset={resetGame}
-            onFlip={flipBoard}
-            onUndo={undoMove}
-            onRedo={redoMove}
-            canUndo={historyPointer > 0}
-            canRedo={historyPointer < moveHistory.length - 1}
-            engineSettings={{ movetime, threads, hashSize, maxThreads, maxHashSize, depth, isDepthAnalysisEnabled }}
-            setEngineSettings={{ setMovetime, setThreads, setHashSize, setDepth, setIsDepthAnalysisEnabled }}
-            sendCommand={sendCommand}
-            onFenClick={handleFenClick}
-            onPgnClick={handlePgnClick}
-            isAutoMoveEnabled={isAutoMoveEnabled}
-            setIsAutoMoveEnabled={setIsAutoMoveEnabled}
-            userColor={userColor}
-            setUserColor={setUserColor}
-            backendUrl={backendUrl}
-            engineMode={engineMode}
-            isOnlineMode={isOnlineMode}
-            onOpenLobby={handleOpenLobby}
-          />
-        </Suspense>
+        {!isOnlineMode && (
+          <Suspense fallback={<div className="panel">Loading...</div>}>
+            <Controls
+              onReset={resetGame}
+              onFlip={flipBoard}
+              onUndo={undoMove}
+              onRedo={redoMove}
+              canUndo={historyPointer > 0}
+              canRedo={historyPointer < moveHistory.length - 1}
+              engineSettings={{ movetime, threads, hashSize, maxThreads, maxHashSize, depth, isDepthAnalysisEnabled }}
+              setEngineSettings={{ setMovetime, setThreads, setHashSize, setDepth, setIsDepthAnalysisEnabled }}
+              sendCommand={sendCommand}
+              onFenClick={handleFenClick}
+              onPgnClick={handlePgnClick}
+              isAutoMoveEnabled={isAutoMoveEnabled}
+              setIsAutoMoveEnabled={setIsAutoMoveEnabled}
+              userColor={userColor}
+              setUserColor={setUserColor}
+              backendUrl={backendUrl}
+              engineMode={engineMode}
+              isOnlineMode={isOnlineMode}
+              onOpenLobby={handleOpenLobby}
+            />
+          </Suspense>
+        )}
 
-        <Suspense fallback={<div className="panel">Loading...</div>}>
-          <MoveHistory
-            moves={moves}
-            classifications={moveClassifications}
-          />
-        </Suspense>
+        {!isOnlineMode && (
+          <Suspense fallback={<div className="panel">Loading...</div>}>
+            <MoveHistory
+              moves={moves}
+              classifications={moveClassifications}
+            />
+          </Suspense>
+        )}
       </main>
+      )}
 
       <ToastContainer 
         position="bottom-right" 

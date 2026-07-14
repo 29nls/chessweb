@@ -45,6 +45,15 @@
   max-width: 1300px;
 }
 
+.App-body.online-mode {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "chessboard";
+  justify-content: center;
+  max-width: 650px;
+  margin: 0 auto;
+}
+
 .panel {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);

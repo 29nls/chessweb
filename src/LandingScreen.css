@@ -1,0 +1,102 @@
+.landing-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  width: 100%;
+  animation: fade-in-up 0.6s ease-out;
+}
+
+.landing-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.landing-header h1 {
+  font-size: 3.5em;
+  margin: 0 0 10px;
+  background: linear-gradient(135deg, var(--accent-primary), var(--online-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.landing-header p {
+  font-size: 1.2em;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.landing-cards {
+  display: flex;
+  gap: 30px;
+  max-width: 800px;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.landing-card {
+  flex: 1;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 20px;
+  padding: 40px 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.landing-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--accent-primary);
+  box-shadow: 0 12px 30px var(--shadow-color);
+}
+
+.landing-card.online:hover {
+  border-color: var(--online-accent);
+}
+
+.card-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2em;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.landing-card:hover .card-icon {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.landing-card.online:hover .card-icon {
+  background: var(--online-accent);
+}
+
+.landing-card h2 {
+  margin: 0;
+  font-size: 1.8em;
+  color: var(--text-primary);
+}
+
+.landing-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .landing-cards {
+    flex-direction: column;
+  }
+}
