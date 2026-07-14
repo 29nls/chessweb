@@ -1,0 +1,41 @@
+[     789ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:25043
+[    1404ms] [LOG] Engine connected (browser) @ http://localhost:3000/static/js/bundle.js:33714
+[    1405ms] [LOG] Sending command: uci @ http://localhost:3000/static/js/bundle.js:33624
+[    1405ms] [LOG] Sending command: setoption name Threads value 1 @ http://localhost:3000/static/js/bundle.js:33624
+[    1405ms] [LOG] Sending command: setoption name Hash value 64 @ http://localhost:3000/static/js/bundle.js:33624
+[    1405ms] [LOG] Sending command: isready @ http://localhost:3000/static/js/bundle.js:33624
+[    1405ms] [LOG] Engine connected (browser) @ http://localhost:3000/static/js/bundle.js:33714
+[    1405ms] [LOG] Sending command: uci @ http://localhost:3000/static/js/bundle.js:33624
+[    1406ms] [LOG] Sending command: setoption name Threads value 1 @ http://localhost:3000/static/js/bundle.js:33624
+[    1406ms] [LOG] Sending command: setoption name Hash value 64 @ http://localhost:3000/static/js/bundle.js:33624
+[    1406ms] [LOG] Sending command: isready @ http://localhost:3000/static/js/bundle.js:33624
+[   75738ms] [LOG] onDrop: Current FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 @ http://localhost:3000/static/js/bundle.js:33776
+[   75739ms] [LOG] onDrop: Move Options: {from: e2, to: e4} @ http://localhost:3000/static/js/bundle.js:33777
+[   75742ms] [LOG] Sending command: position fen rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1 @ http://localhost:3000/static/js/bundle.js:33624
+[   75820ms] [LOG] makeAutoOpponentMove called @ http://localhost:3000/static/js/bundle.js:33632
+[   75821ms] [LOG] Sending command: stop @ http://localhost:3000/static/js/bundle.js:33624
+[   75821ms] [LOG] Sending command: position fen rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1 @ http://localhost:3000/static/js/bundle.js:33624
+[   75821ms] [LOG] Sending command: go movetime 1000 @ http://localhost:3000/static/js/bundle.js:33624
+[   76482ms] [LOG] makeAutoOpponentMove called @ http://localhost:3000/static/js/bundle.js:33632
+[   76482ms] [LOG] Sending command: stop @ http://localhost:3000/static/js/bundle.js:33624
+[   76482ms] [LOG] Sending command: position fen rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1 @ http://localhost:3000/static/js/bundle.js:33624
+[   76482ms] [LOG] Sending command: go movetime 1000 @ http://localhost:3000/static/js/bundle.js:33624
+[   76579ms] [LOG] Received bestmove from Stockfish: e7e5 @ http://localhost:3000/static/js/bundle.js:33686
+[   76583ms] [LOG] Bestmove applied successfully. New FEN: rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2 @ http://localhost:3000/static/js/bundle.js:33698
+[   77593ms] [LOG] Received bestmove from Stockfish: e7e5 @ http://localhost:3000/static/js/bundle.js:33686
+[   77609ms] Error: Invalid move: e7e5
+    at Chess.move (http://localhost:3000/static/js/bundle.js:3296:15)
+    at http://localhost:3000/static/js/bundle.js:33695:37
+    at http://localhost:3000/static/js/bundle.js:35308:33
+    at Set.forEach (<anonymous>)
+    at emit (http://localhost:3000/static/js/bundle.js:35308:19)
+    at handleLine (http://localhost:3000/static/js/bundle.js:35296:5)
+    at parse (http://localhost:3000/static/js/bundle.js:35270:18)
+    at worker.onmessage (http://localhost:3000/static/js/bundle.js:35315:12)
+[  153789ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/main.b518dc455588b46ecffc.hot-update.json:0
+[  154899ms] [ERROR] WebSocket connection to 'ws://localhost:3000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/static/js/bundle.js:26162
+[  159352ms] [ERROR] WebSocket connection to 'ws://localhost:3000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/static/js/bundle.js:26162
+[  165744ms] [ERROR] WebSocket connection to 'ws://localhost:3000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/static/js/bundle.js:26162
+[  176181ms] [ERROR] WebSocket connection to 'ws://localhost:3000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/static/js/bundle.js:26162
+[  194543ms] [ERROR] WebSocket connection to 'ws://localhost:3000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/static/js/bundle.js:26162
+[  228910ms] [ERROR] WebSocket connection to 'ws://localhost:3000/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/static/js/bundle.js:26162

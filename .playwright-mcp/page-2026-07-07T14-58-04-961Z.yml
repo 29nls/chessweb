@@ -1,0 +1,211 @@
+- generic [active] [ref=f5e1]:
+  - generic [ref=f5e3]:
+    - banner [ref=f5e4]:
+      - heading "ChessWeb" [level=1] [ref=f5e5]
+    - main [ref=f5e6]:
+      - generic [ref=f5e7]:
+        - generic [ref=f5e8]:
+          - img [ref=f5e9]
+          - heading "+0.00" [level=2] [ref=f5e10]
+        - generic [ref=f5e11]:
+          - generic [ref=f5e12]:
+            - img [ref=f5e14]
+            - generic [ref=f5e17]:
+              - generic [ref=f5e18]: Depth
+              - generic [ref=f5e19]: N/A
+          - generic [ref=f5e20]:
+            - img [ref=f5e22]
+            - generic [ref=f5e25]:
+              - generic [ref=f5e26]: Nodes
+              - generic [ref=f5e27]: N/A
+          - generic [ref=f5e28]:
+            - img [ref=f5e30]
+            - generic [ref=f5e33]:
+              - generic [ref=f5e34]: NPS
+              - generic [ref=f5e35]: N/A
+          - generic [ref=f5e36]:
+            - img [ref=f5e38]
+            - generic [ref=f5e42]:
+              - generic [ref=f5e43]: TB Hits
+              - generic [ref=f5e44]: N/A
+      - generic [ref=f5e46]:
+        - generic [ref=f5e47]:
+          - generic [ref=f5e49]:
+            - generic [ref=f5e50]: "8"
+            - button [ref=f5e52]:
+              - img [ref=f5e54]
+          - button [ref=f5e65]:
+            - img [ref=f5e67]
+          - button [ref=f5e77]:
+            - img [ref=f5e79]
+          - button [ref=f5e89]:
+            - img [ref=f5e91]
+          - button [ref=f5e110]:
+            - img [ref=f5e112]
+          - button [ref=f5e121]:
+            - img [ref=f5e123]
+          - button [ref=f5e133]:
+            - img [ref=f5e135]
+          - button [ref=f5e145]:
+            - img [ref=f5e147]
+          - generic [ref=f5e156]:
+            - generic [ref=f5e157]: "7"
+            - button [ref=f5e159]:
+              - img [ref=f5e161]
+          - button [ref=f5e166]:
+            - img [ref=f5e168]
+          - button [ref=f5e173]:
+            - img [ref=f5e175]
+          - button [ref=f5e180]:
+            - img [ref=f5e182]
+          - button [ref=f5e187]:
+            - img [ref=f5e189]
+          - button [ref=f5e194]:
+            - img [ref=f5e196]
+          - button [ref=f5e201]:
+            - img [ref=f5e203]
+          - button [ref=f5e208]:
+            - img [ref=f5e210]
+          - generic [ref=f5e214]: "6"
+          - generic [ref=f5e239]: "5"
+          - generic [ref=f5e264]: "4"
+          - generic [ref=f5e289]: "3"
+          - generic [ref=f5e313]:
+            - generic [ref=f5e314]: "2"
+            - button [ref=f5e316]:
+              - img [ref=f5e318]
+          - button [ref=f5e323]:
+            - img [ref=f5e325]
+          - button [ref=f5e330]:
+            - img [ref=f5e332]
+          - button [ref=f5e337]:
+            - img [ref=f5e339]
+          - button [ref=f5e344]:
+            - img [ref=f5e346]
+          - button [ref=f5e351]:
+            - img [ref=f5e353]
+          - button [ref=f5e358]:
+            - img [ref=f5e360]
+          - button [ref=f5e365]:
+            - img [ref=f5e367]
+          - generic [ref=f5e370]:
+            - generic:
+              - generic [ref=f5e371]: a
+              - generic [ref=f5e372]: "1"
+            - button [ref=f5e374]:
+              - img [ref=f5e376]
+          - generic [ref=f5e385]:
+            - generic [ref=f5e386]: b
+            - button [ref=f5e388]:
+              - img [ref=f5e390]
+          - generic [ref=f5e397]:
+            - generic [ref=f5e398]: c
+            - button [ref=f5e400]:
+              - img [ref=f5e402]
+          - generic [ref=f5e410]:
+            - generic [ref=f5e411]: d
+            - button [ref=f5e413]:
+              - img [ref=f5e415]
+          - generic [ref=f5e427]:
+            - generic [ref=f5e428]: e
+            - button [ref=f5e430]:
+              - img [ref=f5e432]
+          - generic [ref=f5e440]:
+            - generic [ref=f5e441]: f
+            - button [ref=f5e443]:
+              - img [ref=f5e445]
+          - generic [ref=f5e453]:
+            - generic [ref=f5e454]: g
+            - button [ref=f5e456]:
+              - img [ref=f5e458]
+          - generic [ref=f5e465]:
+            - generic [ref=f5e466]: h
+            - button [ref=f5e468]:
+              - img [ref=f5e470]
+          - img
+        - status [ref=f5e478]
+      - generic [ref=f5e479]:
+        - generic [ref=f5e480]:
+          - heading "Game" [level=3] [ref=f5e481]:
+            - img [ref=f5e482]
+            - generic [ref=f5e484]: Game
+          - generic [ref=f5e486]:
+            - button "New" [ref=f5e487] [cursor=pointer]:
+              - img [ref=f5e488]
+              - generic [ref=f5e491]: New
+            - button "Flip" [ref=f5e492] [cursor=pointer]:
+              - img [ref=f5e493]
+              - generic [ref=f5e498]: Flip
+            - button "Undo" [disabled] [ref=f5e499]:
+              - img [ref=f5e500]
+              - generic [ref=f5e502]: Undo
+            - button "Redo" [disabled] [ref=f5e503]:
+              - img [ref=f5e504]
+              - generic [ref=f5e506]: Redo
+        - generic [ref=f5e507]:
+          - heading "Position" [level=3] [ref=f5e508]:
+            - img [ref=f5e509]
+            - generic [ref=f5e512]: Position
+          - generic [ref=f5e514]:
+            - button "FEN" [ref=f5e515] [cursor=pointer]:
+              - img [ref=f5e516]
+              - generic [ref=f5e519]: FEN
+            - button "PGN" [ref=f5e520] [cursor=pointer]:
+              - img [ref=f5e521]
+              - generic [ref=f5e524]: PGN
+        - generic [ref=f5e525]:
+          - heading "Player" [level=3] [ref=f5e526]:
+            - img [ref=f5e527]
+            - generic [ref=f5e530]: Player
+          - generic [ref=f5e531]:
+            - generic [ref=f5e532]:
+              - text: Play as
+              - combobox "Play as" [ref=f5e533] [cursor=pointer]:
+                - option "White" [selected]
+                - option "Black"
+            - generic [ref=f5e535] [cursor=pointer]:
+              - text: Auto-move Opponent
+              - checkbox "Auto-move Opponent"
+        - generic [ref=f5e537]:
+          - heading "Engine" [level=3] [ref=f5e538]:
+            - img [ref=f5e539]
+            - generic [ref=f5e542]: Engine
+          - generic [ref=f5e543]:
+            - generic [ref=f5e544]:
+              - text: Chess Engine
+              - combobox "Chess Engine" [ref=f5e545] [cursor=pointer]:
+                - option "Stockfish 16 (WASM)" [selected]
+            - generic [ref=f5e546]:
+              - text: Analysis Time (ms)
+              - combobox "Analysis Time (ms)" [ref=f5e547] [cursor=pointer]:
+                - option "1000" [selected]
+                - option "2000"
+                - option "3000"
+                - option "5000"
+                - option "10000"
+            - generic [ref=f5e548]:
+              - generic [ref=f5e549]: "CPU Threads: 1"
+              - 'slider "CPU Threads: 1" [ref=f5e550]': "1"
+            - generic [ref=f5e551]:
+              - text: Hash Size (MB)
+              - combobox "Hash Size (MB)" [ref=f5e552] [cursor=pointer]:
+                - option "16"
+                - option "32"
+                - option "64" [selected]
+                - option "128"
+                - option "256"
+                - option "512"
+                - option "1024"
+      - generic [ref=f5e553]:
+        - heading "Move History" [level=3] [ref=f5e554]:
+          - img [ref=f5e555]
+          - text: Move History
+        - generic [ref=f5e556]: Make a move to start tracking
+    - region "Notifications Alt+T"
+  - iframe [ref=f5e557]:
+    - generic [ref=f6e2]:
+      - generic [ref=f6e3]: "Uncaught runtime errors:"
+      - button "Dismiss" [ref=f6e4] [cursor=pointer]: ×
+      - generic [ref=f6e6]:
+        - generic [ref=f6e7]: ERROR
+        - generic [ref=f6e8]: "Uncaught RuntimeError: abort(CompileError: WebAssembly.instantiate(): expected magic word 00 61 73 6d, found 3c 21 44 4f @+0). Build with -s ASSERTIONS=1 for more info. at handleError (http://localhost:3000/static/js/bundle.js:27677:58) at http://localhost:3000/static/js/bundle.js:27696:7"

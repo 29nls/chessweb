@@ -68,13 +68,15 @@ function App() {
   const pendingIsEngineRef = useRef(false);
   const stockfishEvalRef = useRef(stockfishEval);
   const fenRef = useRef(fen);
+  const makeAutoOpponentMoveRef = useRef(makeAutoOpponentMove);
 
   // Keep refs in sync with state so the engine output handler (registered once)
   // always reads the latest values without re-subscribing.
   useEffect(() => {
     stockfishEvalRef.current = stockfishEval;
     fenRef.current = fen;
-  }, [stockfishEval, fen]);
+    makeAutoOpponentMoveRef.current = makeAutoOpponentMove;
+  }, [stockfishEval, fen, makeAutoOpponentMove]);
 
   const sendCommand = React.useCallback((command) => {
     console.log('Sending command:', command);
@@ -158,15 +160,20 @@ function App() {
         pendingIsEngineRef.current = true;
 
         const gameCopy = new Chess(fenRef.current);
-        const moveResult = gameCopy.move(data.move, { sloppy: true });
-        if (moveResult) {
-          console.log('Bestmove applied successfully. New FEN:', gameCopy.fen());
-          setFen(gameCopy.fen());
-          setGame(gameCopy);
-          if (moveResult.san) setMoves((prev) => [...prev, moveResult.san]);
-          setLastMove({ from: moveResult.from, to: moveResult.to });
-        } else {
-          console.warn('Failed to apply bestmove:', data.move);
+        try {
+          const moveResult = gameCopy.move(data.move, { sloppy: true });
+          if (moveResult) {
+            console.log('Bestmove applied successfully. New FEN:', gameCopy.fen());
+            setFen(gameCopy.fen());
+            setGame(gameCopy);
+            if (moveResult.san) setMoves((prev) => [...prev, moveResult.san]);
+            setLastMove({ from: moveResult.from, to: moveResult.to });
+          } else {
+            console.warn('Failed to apply bestmove:', data.move);
+          }
+        } catch (err) {
+          // Move already applied (e.g. duplicate bestmove for same position)
+          console.warn('Skipping bestmove (already applied):', data.move);
         }
       }
     });
@@ -186,7 +193,9 @@ function App() {
     };
   }, [engineMode, backendUrl, threads, hashSize, sendCommand]);
 
-  // Effect to trigger auto-move when enabled and it's opponent's turn
+  // Effect to trigger auto-move when enabled and it's opponent's turn.
+  // Uses a ref for makeAutoOpponentMove so this effect does not re-fire (and
+  // send a duplicate `go`) every time `fen` changes and recreates the callback.
   useEffect(() => {
     if (isAutoMoveEnabled) {
       const turn = fen.split(' ')[1];
@@ -194,10 +203,10 @@ function App() {
       const isOpponentTurn = (playerIsWhite && turn === 'b') || (!playerIsWhite && turn === 'w');
 
       if (isOpponentTurn) {
-        makeAutoOpponentMove();
+        makeAutoOpponentMoveRef.current();
       }
     }
-  }, [isAutoMoveEnabled, fen, userColor, makeAutoOpponentMove]);
+  }, [isAutoMoveEnabled, fen, userColor]);
 
   // Calculate evaluation bar height
   let whiteHeight = 50;

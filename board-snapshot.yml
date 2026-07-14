@@ -1,0 +1,203 @@
+- generic [ref=f7e3]:
+  - banner [ref=f7e4]:
+    - heading "ChessWeb" [level=1] [ref=f7e5]
+  - main [ref=f7e6]:
+    - generic [ref=f7e7]:
+      - generic [ref=f7e8]:
+        - img [ref=f7e9]
+        - heading "+0.00" [level=2] [ref=f7e10]
+      - generic [ref=f7e11]:
+        - generic [ref=f7e12]:
+          - img [ref=f7e14]
+          - generic [ref=f7e17]:
+            - generic [ref=f7e18]: Depth
+            - generic [ref=f7e19]: N/A
+        - generic [ref=f7e20]:
+          - img [ref=f7e22]
+          - generic [ref=f7e25]:
+            - generic [ref=f7e26]: Nodes
+            - generic [ref=f7e27]: N/A
+        - generic [ref=f7e28]:
+          - img [ref=f7e30]
+          - generic [ref=f7e33]:
+            - generic [ref=f7e34]: NPS
+            - generic [ref=f7e35]: N/A
+        - generic [ref=f7e36]:
+          - img [ref=f7e38]
+          - generic [ref=f7e42]:
+            - generic [ref=f7e43]: TB Hits
+            - generic [ref=f7e44]: N/A
+    - generic [ref=f7e46]:
+      - generic [ref=f7e47]:
+        - generic [ref=f7e49]:
+          - generic [ref=f7e50]: "8"
+          - button [ref=f7e52]:
+            - img [ref=f7e54]
+        - button [ref=f7e65]:
+          - img [ref=f7e67]
+        - button [ref=f7e77]:
+          - img [ref=f7e79]
+        - button [ref=f7e89]:
+          - img [ref=f7e91]
+        - button [ref=f7e110]:
+          - img [ref=f7e112]
+        - button [ref=f7e121]:
+          - img [ref=f7e123]
+        - button [ref=f7e133]:
+          - img [ref=f7e135]
+        - button [ref=f7e145]:
+          - img [ref=f7e147]
+        - generic [ref=f7e156]:
+          - generic [ref=f7e157]: "7"
+          - button [ref=f7e159]:
+            - img [ref=f7e161]
+        - button [ref=f7e166]:
+          - img [ref=f7e168]
+        - button [ref=f7e173]:
+          - img [ref=f7e175]
+        - button [ref=f7e180]:
+          - img [ref=f7e182]
+        - button [ref=f7e187]:
+          - img [ref=f7e189]
+        - button [ref=f7e194]:
+          - img [ref=f7e196]
+        - button [ref=f7e201]:
+          - img [ref=f7e203]
+        - button [ref=f7e208]:
+          - img [ref=f7e210]
+        - generic [ref=f7e214]: "6"
+        - generic [ref=f7e239]: "5"
+        - generic [ref=f7e264]: "4"
+        - generic [ref=f7e289]: "3"
+        - generic [ref=f7e313]:
+          - generic [ref=f7e314]: "2"
+          - button [ref=f7e316]:
+            - img [ref=f7e318]
+        - button [ref=f7e323]:
+          - img [ref=f7e325]
+        - button [ref=f7e330]:
+          - img [ref=f7e332]
+        - button [ref=f7e337]:
+          - img [ref=f7e339]
+        - button [ref=f7e344]:
+          - img [ref=f7e346]
+        - button [ref=f7e351]:
+          - img [ref=f7e353]
+        - button [ref=f7e358]:
+          - img [ref=f7e360]
+        - button [ref=f7e365]:
+          - img [ref=f7e367]
+        - generic [ref=f7e370]:
+          - generic:
+            - generic [ref=f7e371]: a
+            - generic [ref=f7e372]: "1"
+          - button [ref=f7e374]:
+            - img [ref=f7e376]
+        - generic [ref=f7e385]:
+          - generic [ref=f7e386]: b
+          - button [ref=f7e388]:
+            - img [ref=f7e390]
+        - generic [ref=f7e397]:
+          - generic [ref=f7e398]: c
+          - button [ref=f7e400]:
+            - img [ref=f7e402]
+        - generic [ref=f7e410]:
+          - generic [ref=f7e411]: d
+          - button [ref=f7e413]:
+            - img [ref=f7e415]
+        - generic [ref=f7e427]:
+          - generic [ref=f7e428]: e
+          - button [ref=f7e430]:
+            - img [ref=f7e432]
+        - generic [ref=f7e440]:
+          - generic [ref=f7e441]: f
+          - button [ref=f7e443]:
+            - img [ref=f7e445]
+        - generic [ref=f7e453]:
+          - generic [ref=f7e454]: g
+          - button [ref=f7e456]:
+            - img [ref=f7e458]
+        - generic [ref=f7e465]:
+          - generic [ref=f7e466]: h
+          - button [ref=f7e468]:
+            - img [ref=f7e470]
+        - img
+      - status [ref=f7e478]
+    - generic [ref=f7e479]:
+      - generic [ref=f7e480]:
+        - heading "Game" [level=3] [ref=f7e481]:
+          - img [ref=f7e482]
+          - generic [ref=f7e484]: Game
+        - generic [ref=f7e486]:
+          - button "New" [ref=f7e487] [cursor=pointer]:
+            - img [ref=f7e488]
+            - generic [ref=f7e491]: New
+          - button "Flip" [ref=f7e492] [cursor=pointer]:
+            - img [ref=f7e493]
+            - generic [ref=f7e498]: Flip
+          - button "Undo" [disabled] [ref=f7e499]:
+            - img [ref=f7e500]
+            - generic [ref=f7e502]: Undo
+          - button "Redo" [disabled] [ref=f7e503]:
+            - img [ref=f7e504]
+            - generic [ref=f7e506]: Redo
+      - generic [ref=f7e507]:
+        - heading "Position" [level=3] [ref=f7e508]:
+          - img [ref=f7e509]
+          - generic [ref=f7e512]: Position
+        - generic [ref=f7e514]:
+          - button "FEN" [ref=f7e515] [cursor=pointer]:
+            - img [ref=f7e516]
+            - generic [ref=f7e519]: FEN
+          - button "PGN" [ref=f7e520] [cursor=pointer]:
+            - img [ref=f7e521]
+            - generic [ref=f7e524]: PGN
+      - generic [ref=f7e525]:
+        - heading "Player" [level=3] [ref=f7e526]:
+          - img [ref=f7e527]
+          - generic [ref=f7e530]: Player
+        - generic [ref=f7e531]:
+          - generic [ref=f7e532]:
+            - text: Play as
+            - combobox "Play as" [ref=f7e533] [cursor=pointer]:
+              - option "White" [selected]
+              - option "Black"
+          - generic [ref=f7e535] [cursor=pointer]:
+            - text: Auto-move Opponent
+            - checkbox "Auto-move Opponent"
+      - generic [ref=f7e537]:
+        - heading "Engine" [level=3] [ref=f7e538]:
+          - img [ref=f7e539]
+          - generic [ref=f7e542]: Engine
+        - generic [ref=f7e543]:
+          - generic [ref=f7e544]:
+            - text: Chess Engine
+            - combobox "Chess Engine" [ref=f7e545] [cursor=pointer]:
+              - option "Stockfish 16 (WASM)" [selected]
+          - generic [ref=f7e546]:
+            - text: Analysis Time (ms)
+            - combobox "Analysis Time (ms)" [ref=f7e547] [cursor=pointer]:
+              - option "1000" [selected]
+              - option "2000"
+              - option "3000"
+              - option "5000"
+              - option "10000"
+          - generic [ref=f7e548]:
+            - generic [ref=f7e549]: "CPU Threads: 1"
+            - 'slider "CPU Threads: 1" [ref=f7e550]': "1"
+          - generic [ref=f7e551]:
+            - text: Hash Size (MB)
+            - combobox "Hash Size (MB)" [ref=f7e552] [cursor=pointer]:
+              - option "16"
+              - option "32"
+              - option "64" [selected]
+              - option "128"
+              - option "256"
+              - option "512"
+              - option "1024"
+    - generic [ref=f7e553]:
+      - heading "Move History" [level=3] [ref=f7e554]:
+        - img [ref=f7e555]
+        - text: Move History
+      - generic [ref=f7e556]: Make a move to start tracking
+  - region "Notifications Alt+T"
