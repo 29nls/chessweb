@@ -1,8 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Cpu, Globe, Eye } from 'react-feather';
 import './LandingScreen.css';
 
-const LandingScreen = ({ onSelectMode }) => {
+const LandingScreen = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="landing-screen">
       <div className="landing-header">
@@ -11,7 +14,7 @@ const LandingScreen = ({ onSelectMode }) => {
       </div>
 
       <div className="landing-cards">
-        <div className="landing-card" onClick={() => onSelectMode('analysis')}>
+        <div className="landing-card" onClick={() => navigate('/analysis')}>
           <div className="card-icon">
             <Cpu size={40} />
           </div>
@@ -22,7 +25,7 @@ const LandingScreen = ({ onSelectMode }) => {
           </p>
         </div>
 
-        <div className="landing-card online" onClick={() => onSelectMode('online')}>
+        <div className="landing-card online" onClick={() => navigate('/online?tab=play')}>
           <div className="card-icon">
             <Globe size={40} />
           </div>
@@ -33,7 +36,7 @@ const LandingScreen = ({ onSelectMode }) => {
           </p>
         </div>
 
-        <div className="landing-card spectator" onClick={() => onSelectMode('spectate')}>
+        <div className="landing-card spectator" onClick={() => navigate('/online?tab=spectate')}>
           <div className="card-icon">
             <Eye size={40} />
           </div>
