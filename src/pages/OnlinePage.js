@@ -4,6 +4,7 @@ import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
 import { useOnlineGame } from '../hooks/useOnlineGame';
 import OnlineLobby, { OnlineStatusBar } from '../OnlineLobby';
+import { BoardSkeleton } from '../components/SkeletonLoader';
 
 const ChessboardContainer = React.lazy(() => import('../ChessboardContainer'));
 
@@ -198,11 +199,6 @@ export default function OnlinePage() {
 
   return (
     <div className="App">
-      <header className="App-header" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '0 20px', height: '60px' }}>
-        <button onClick={handleLeaveOnlineGame} className="button-secondary" style={{ height: '40px' }}>
-          Back to Home
-        </button>
-      </header>
       <main className="App-body online-mode">
         <div style={{ gridArea: 'chessboard' }}>
           <OnlineStatusBar
@@ -213,7 +209,7 @@ export default function OnlinePage() {
             onLeaveGame={handleLeaveOnlineGame}
             gameStatus={online.gameStatus}
           />
-          <Suspense fallback={<div className="chessboard-container-wrapper">Loading...</div>}>
+          <Suspense fallback={<BoardSkeleton />}>
             <ChessboardContainer
               fen={fen}
               onDrop={onDrop}

@@ -1,7 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Wifi, Copy, Globe, Eye, Users } from 'react-feather';
 import { useLobbyGames } from './hooks/useLobbyGames';
 import './OnlineLobby.css';
+
+/**
+ * AccessibleDialog – A thin wrapper around native <dialog> that handles
+ * showModal/close lifecycle and Escape-key support.
+ */
+const AccessibleDialog = ({ isOpen, onClose, labelledBy, children, className = '' }) => {
+  const dialogRef = useRef(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (isOpen) {
+      if (!dialog.open) dialog.showModal();
+    } else {
+      if (dialog.open) dialog.close();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const handleCancel = (e) => { e.preventDefault(); onClose(); };
+    dialog.addEventListener('cancel', handleCancel);
+    return () => dialog.removeEventListener('cancel', handleCancel);
+  }, [onClose]);
+
+  return (
+    <dialog ref={dialogRef} className={`accessible-dialog ${className}`} aria-labelledby={labelledBy}>
+      {children}
+    </dialog>
+  );
+};
 
 /**
  * OnlineLobby – Modal UI for creating/joining online games and spectating.
@@ -56,22 +88,26 @@ const OnlineLobby = ({
     const isDraw = gameResult.winner === 'draw';
     const isSpectator = playerColor === 'spectator';
 
+    const resultTitle = isSpectator
+      ? (isDraw ? 'Draw!' : `${gameResult.winner === 'white' ? 'White' : 'Black'} Wins!`)
+      : (isDraw ? 'Draw!' : isWinner ? 'You Win!' : 'You Lose');
+
     return (
-      <div className="game-result-overlay" onClick={onLeaveGame}>
-        <div className="game-result-card" onClick={e => e.stopPropagation()}>
-          <div className="game-result-icon">
+      <AccessibleDialog
+        isOpen={true}
+        onClose={onLeaveGame}
+        labelledBy="game-result-title"
+        className="game-result-dialog"
+      >
+        <div className="game-result-card">
+          <div className="game-result-icon" aria-hidden="true">
             {isDraw ? '🤝' : (isWinner ? '🏆' : (isSpectator ? '🏁' : '😞'))}
           </div>
-          <h2>
-            {isSpectator 
-              ? (isDraw ? 'Draw!' : `${gameResult.winner === 'white' ? 'White' : 'Black'} Wins!`)
-              : (isDraw ? 'Draw!' : isWinner ? 'You Win!' : 'You Lose')
-            }
-          </h2>
+          <h2 id="game-result-title">{resultTitle}</h2>
           <p>{gameResult.reason}</p>
           <div className="game-result-actions">
             {!isSpectator && (
-              <button className="game-result-btn-new" onClick={() => { onLeaveGame(); }}>
+              <button className="game-result-btn-new" onClick={onLeaveGame}>
                 New Game
               </button>
             )}
@@ -80,21 +116,26 @@ const OnlineLobby = ({
             </button>
           </div>
         </div>
-      </div>
+      </AccessibleDialog>
     );
   }
 
   // ─── Lobby Modal (idle / waiting) ───
   if (gameStatus === 'idle' || gameStatus === 'waiting') {
     return (
-      <div className="online-lobby-overlay" onClick={onClose}>
-        <div className="online-lobby-card" onClick={e => e.stopPropagation()}>
+      <AccessibleDialog
+        isOpen={true}
+        onClose={onClose}
+        labelledBy="lobby-title"
+        className="online-lobby-dialog"
+      >
+        <div className="online-lobby-card">
           <div className="lobby-header">
-            <h2>
-              <Globe size={24} />
+            <h2 id="lobby-title">
+              <Globe size={24} aria-hidden="true" />
               Online Multiplayer
             </h2>
-            <button className="lobby-close-btn" onClick={onClose}>
+            <button className="lobby-close-btn" onClick={onClose} aria-label="Close lobby">
               &times;
             </button>
           </div>
@@ -205,7 +246,8 @@ const OnlineLobby = ({
           )}
 
         </div>
-      </div>
+        </div>
+      </AccessibleDialog>
     );
   }
 
@@ -236,12 +278,12 @@ export const OnlineStatusBar = ({
         </div>
       ) : (
         <div className="online-status-info">
-          <span className={`online-status-dot ${isMyTurn ? 'your-turn' : 'connected'}`} />
-          <span>
+          <span className={`online-status-dot ${isMyTurn ? 'your-turn' : 'connected'}`} aria-hidden="true" />
+          <span aria-live="polite" aria-atomic="true">
             {isMyTurn ? '⚡ Your turn' : '⏳ Opponent\'s turn'}
           </span>
-          <span style={{ margin: '0 4px', color: 'var(--border-color)' }}>|</span>
-          <span className={`online-status-dot ${opponentConnected ? 'connected' : 'disconnected'}`} />
+          <span style={{ margin: '0 4px', color: 'var(--border-color)' }} aria-hidden="true">|</span>
+          <span className={`online-status-dot ${opponentConnected ? 'connected' : 'disconnected'}`} aria-hidden="true" />
           <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
             {opponentConnected ? 'Connected' : 'Disconnected'}
           </span>

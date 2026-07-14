@@ -4,7 +4,8 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 
-// Import Pages
+// Import Layout & Pages
+import AppLayout from './components/AppLayout';
 import LandingScreen from './LandingScreen';
 import AnalysisPage from './pages/AnalysisPage';
 import OnlinePage from './pages/OnlinePage';
@@ -12,11 +13,13 @@ import OnlinePage from './pages/OnlinePage';
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<LandingScreen />} />
-        <Route path="/analysis" element={<AnalysisPage />} />
-        <Route path="/online" element={<OnlinePage />} />
-      </Routes>
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<LandingScreen />} />
+          <Route path="/analysis" element={<AnalysisPage />} />
+          <Route path="/online" element={<OnlinePage />} />
+        </Routes>
+      </AppLayout>
       <ToastContainer 
         position="bottom-right" 
         autoClose={3000} 

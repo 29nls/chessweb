@@ -1,20 +1,21 @@
-/* ===== Online Lobby ===== */
+/* ===== Accessible Dialog Base ===== */
 
-.online-lobby-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.accessible-dialog {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.accessible-dialog::backdrop {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
   animation: lobby-fade-in 0.3s ease-out;
 }
+
+/* ===== Online Lobby ===== */
 
 @keyframes lobby-fade-in {
   from { opacity: 0; }
@@ -404,20 +405,11 @@
   color: var(--accent-primary);
 }
 
-/* ===== Game Result Modal ===== */
+/* ===== Game Result Dialog ===== */
 
-.game-result-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.game-result-dialog::backdrop {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(6px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1100;
   animation: lobby-fade-in 0.3s ease-out;
 }
 
