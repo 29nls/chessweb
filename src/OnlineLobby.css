@@ -102,6 +102,41 @@
   border-color: var(--accent-primary);
 }
 
+/* Lobby Tabs */
+.lobby-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  background: var(--bg-primary);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.lobby-tab {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.lobby-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.lobby-tab.active {
+  background: var(--bg-secondary);
+  color: var(--accent-primary);
+  box-shadow: 0 1px 4px var(--shadow-color);
+}
+
 /* Lobby Actions */
 .lobby-actions {
   display: flex;
