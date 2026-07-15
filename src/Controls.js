@@ -47,7 +47,8 @@ const Controls = ({
   backendUrl,
   engineMode,
   isOnlineMode = false,
-  onOpenLobby,
+  multiPv = 1,
+  onMultiPvChange,
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
@@ -166,6 +167,14 @@ const Controls = ({
           <select id="hash" value={engineSettings.hashSize} onChange={handleHashChange}>
             {[16, 32, 64, 128, 256, 512, 1024].map(size => (
               <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </div>
+        <div className="control-group">
+          <label htmlFor="multiPv">Analysis Lines</label>
+          <select id="multiPv" value={multiPv} onChange={(e) => onMultiPvChange(parseInt(e.target.value, 10))}>
+            {[1, 2, 3].map(n => (
+              <option key={n} value={n}>{n}</option>
             ))}
           </select>
         </div>

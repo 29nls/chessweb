@@ -11,13 +11,14 @@ class StubWorker {
 }
 global.Worker = StubWorker;
 
-test('App mounts, shows the loading screen, then the chess UI', async () => {
+test('App mounts and shows the landing screen', async () => {
   render(<App />);
 
-  // Initial loading state renders synchronously (single element, early return).
-  expect(screen.getByText('Loading...')).toBeInTheDocument();
+  // Landing screen renders immediately with the ChessWeb heading
+  expect(screen.getByText('ChessWeb')).toBeInTheDocument();
 
-  // After the loading delay the full app (incl. lazy board) mounts.
-  // 2500ms > the 1500ms loading delay, and exercises the ResizeObserver path.
-  expect(await screen.findByText('ChessWeb', {}, { timeout: 2500 })).toBeInTheDocument();
+  // The three game-mode cards are present
+  expect(screen.getByText('Analysis Mode')).toBeInTheDocument();
+  expect(screen.getByText('Play Online')).toBeInTheDocument();
+  expect(screen.getByText('Watch Live')).toBeInTheDocument();
 });

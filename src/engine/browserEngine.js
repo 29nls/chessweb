@@ -42,6 +42,7 @@ function handleLine(line) {
     const matchNodes = line.match(/nodes (\d+)/);
     const matchNps = line.match(/nps (\d+)/);
     const matchtbhits = line.match(/tbhits (\d+)/);
+    const matchMultiPv = line.match(/multipv (\d+)/);
     emit({
       type: 'info',
       raw: line,
@@ -53,6 +54,7 @@ function handleLine(line) {
       nodes: matchNodes ? parseInt(matchNodes[1], 10) : null,
       nps: matchNps ? parseInt(matchNps[1], 10) : null,
       tbhits: matchtbhits ? parseInt(matchtbhits[1], 10) : null,
+      multipv: matchMultiPv ? parseInt(matchMultiPv[1], 10) : 1,
     });
   } else if (line.startsWith('bestmove')) {
     const move = line.split(' ')[1];

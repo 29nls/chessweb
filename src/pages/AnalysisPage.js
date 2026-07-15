@@ -6,6 +6,8 @@ import MoveHistory from '../MoveHistory';
 import { useChessEngine } from '../hooks/useChessEngine';
 import { useGameHistory } from '../hooks/useGameHistory';
 import { BoardSkeleton, PanelSkeleton, MoveHistorySkeleton } from '../components/SkeletonLoader';
+import { playMoveSound, findCheckedKingSquare } from '../lib/sound';
+import OpeningExplorer from '../components/OpeningExplorer';
 
 // Lazy load heavy components for better initial load time
 const EvaluationSection = React.lazy(() => import('../EvaluationSection'));
@@ -18,6 +20,7 @@ export default function AnalysisPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isDepthAnalysisEnabled, setIsDepthAnalysisEnabled] = useState(false);
   const [isAutoMoveEnabled, setIsAutoMoveEnabled] = useState(false);
+  const [multiPv, setMultiPv] = useState(1);
 
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
@@ -49,6 +52,7 @@ export default function AnalysisPage() {
 
   const handleBestMove = useCallback((gameCopy, moveResult) => {
     history.applyMove(gameCopy, moveResult);
+    playMoveSound(moveResult, gameCopy);
   }, [history]);
 
   const engine = useChessEngine({
@@ -56,6 +60,7 @@ export default function AnalysisPage() {
     hashSize,
     fen: history.fen,
     onBestMove: handleBestMove,
+    multiPv,
   });
 
   // ── Derived state ─────────────────────────────────────────
@@ -110,6 +115,8 @@ export default function AnalysisPage() {
       return false;
     }
 
+    playMoveSound(move, gameCopy);
+
     const newFen = gameCopy.fen();
     history.applyMove(gameCopy, move);
     history.pushHistory(newFen, history.historyPointer, history.moveHistory);
@@ -134,7 +141,14 @@ export default function AnalysisPage() {
     history.reset(engine.sendCommand);
   };
 
+  const handleMultiPvChange = (value) => {
+    setMultiPv(value);
+    engine.sendCommand(`setoption name MultiPV value ${value}`);
+  };
+
   const flipBoard = () => setBoardOrientation((p) => (p === 'white' ? 'black' : 'white'));
+
+  const checkedKingSquare = findCheckedKingSquare(history.game);
 
   // ── FEN / PGN handlers ────────────────────────────────────
   const handleFenClick = () => { setFenInput(history.game.fen()); setShowFenModal(true); };
@@ -233,6 +247,7 @@ export default function AnalysisPage() {
             evaluation={engine.stockfishEval}
             whiteHeight={whiteHeight}
             isDepthAnalysisEnabled={isDepthAnalysisEnabled}
+            multiPvLines={engine.multiPvLines}
           />
         </Suspense>
 
@@ -248,6 +263,7 @@ export default function AnalysisPage() {
               userColor={userColor}
               isOnlineMode={false}
               isSpectator={false}
+              checkedKingSquare={checkedKingSquare}
             />
           </Suspense>
         </div>
@@ -272,8 +288,12 @@ export default function AnalysisPage() {
             backendUrl={engine.backendUrl}
             engineMode={engine.engineMode}
             isOnlineMode={false}
+            multiPv={multiPv}
+            onMultiPvChange={handleMultiPvChange}
           />
         </Suspense>
+
+        <OpeningExplorer moves={history.moves} />
 
         <Suspense fallback={<MoveHistorySkeleton />}>
           <MoveHistory moves={history.moves} classifications={engine.moveClassifications} />

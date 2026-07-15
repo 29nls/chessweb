@@ -1,4 +1,3 @@
-
 .evaluation-section {
   display: flex;
   flex-direction: column;
@@ -63,5 +62,65 @@
   font-size: 1.1em;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.multi-pv-lines {
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+.multi-pv-header {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.multi-pv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 0.85em;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.multi-pv-row:last-child {
+  border-bottom: none;
+}
+
+.multi-pv-idx {
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 20px;
+}
+
+.multi-pv-eval {
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  min-width: 55px;
+}
+
+.multi-pv-eval.positive {
+  color: #2ecc71;
+}
+
+.multi-pv-eval.negative {
+  color: #e74c3c;
+}
+
+.multi-pv-depth {
+  color: var(--text-secondary);
+  min-width: 20px;
+}
+
+.multi-pv-pv {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Courier New', monospace;
 }
 

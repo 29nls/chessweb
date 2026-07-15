@@ -1,9 +1,0 @@
-[  105876ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/static/js/bundle.js:25043
-[  105948ms] [LOG] wasm streaming compile failed: TypeError: Failed to execute 'compile' on 'WebAssembly': Incorrect response MIME type. Expected 'application/wasm'. @ http://localhost:3000/stockfish/stockfish-nnue-16.js:13
-[  105948ms] [LOG] falling back to ArrayBuffer instantiation @ http://localhost:3000/stockfish/stockfish-nnue-16.js:13
-[  105953ms] [LOG] failed to asynchronously prepare wasm: CompileError: WebAssembly.instantiate(): expected magic word 00 61 73 6d, found 3c 21 44 4f @+0 @ http://localhost:3000/stockfish/stockfish-nnue-16.js:13
-[  105953ms] [LOG] CompileError: WebAssembly.instantiate(): expected magic word 00 61 73 6d, found 3c 21 44 4f @+0 @ http://localhost:3000/stockfish/stockfish-nnue-16.js:13
-[  105958ms] [ERROR] [BrowserEngine] worker error: Uncaught RuntimeError: abort(CompileError: WebAssembly.instantiate(): expected magic word 00 61 73 6d, found 3c 21 44 4f @+0). Build with -s ASSERTIONS=1 for more info. @ http://localhost:3000/static/js/bundle.js:35314
-[  105959ms] RuntimeError: abort(CompileError: WebAssembly.instantiate(): expected magic word 00 61 73 6d, found 3c 21 44 4f @+0). Build with -s ASSERTIONS=1 for more info.
-    at w (http://localhost:3000/stockfish/stockfish-nnue-16.js:14:4710)
-    at http://localhost:3000/stockfish/stockfish-nnue-16.js:14:17278

@@ -8,9 +8,10 @@ import { calculateLoss, classifyMove } from '../MoveClassification';
  * Manages Stockfish initialization, evaluation, and move classification.
  * Separated from UI concerns so AnalysisPage stays focused on rendering.
  */
-export function useChessEngine({ threads, hashSize, fen, onBestMove }) {
+export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1 }) {
   const [stockfishEval, setStockfishEval] = useState({ score: null, type: 'cp' });
   const [moveClassifications, setMoveClassifications] = useState([]);
+  const [multiPvLines, setMultiPvLines] = useState([]);
 
   const engineMode = process.env.REACT_APP_ENGINE_MODE || 'browser';
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
@@ -23,12 +24,14 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove }) {
   const pendingIsEngineRef = useRef(false);
   const stockfishEvalRef = useRef(stockfishEval);
   const fenRef = useRef(fen);
+  const multiPvRef = useRef(multiPv);
 
   // Keep refs synced
   useEffect(() => {
     stockfishEvalRef.current = stockfishEval;
     fenRef.current = fen;
-  }, [stockfishEval, fen]);
+    multiPvRef.current = multiPv;
+  }, [stockfishEval, fen, multiPv]);
 
   const sendCommand = useCallback((command) => {
     if (engine.current) {
@@ -41,15 +44,26 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove }) {
 
     const cleanupOutput = engine.current.onOutput((data) => {
       if (data.type === 'info' && data.score) {
-        const newEval = {
+        const idx = (data.multipv || 1) - 1;
+        const lineEval = {
           score: data.score.value,
           type: data.score.type,
           depth: data.depth,
+          pv: data.pv || [],
           nodes: data.nodes,
           nps: data.nps,
           tbhits: data.tbhits,
         };
-        setStockfishEval(newEval);
+
+        if (idx === 0) {
+          setStockfishEval(lineEval);
+        }
+
+        setMultiPvLines((prev) => {
+          const updated = [...prev];
+          updated[idx] = lineEval;
+          return updated;
+        });
 
         if (pendingClassifyRef.current) {
           let beforeScore = evalBeforeRef.current;
@@ -71,6 +85,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove }) {
           pendingSideRef.current = null;
         }
       } else if (data.type === 'bestmove') {
+        setMultiPvLines([]);
         const turn = fenRef.current.split(' ')[1];
         evalBeforeRef.current = stockfishEvalRef.current.score;
         pendingClassifyRef.current = true;
@@ -95,6 +110,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove }) {
       sendCommand('uci');
       sendCommand(`setoption name Threads value ${threads}`);
       sendCommand(`setoption name Hash value ${hashSize}`);
+      sendCommand(`setoption name MultiPV value ${multiPv}`);
       sendCommand('isready');
     });
 
@@ -103,7 +119,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove }) {
       engine.current.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engineMode, backendUrl, threads, hashSize, sendCommand]);
+  }, [engineMode, backendUrl, threads, hashSize, multiPv, sendCommand]);
 
   const prepareClassification = useCallback((side) => {
     evalBeforeRef.current = stockfishEvalRef.current.score;
@@ -135,6 +151,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove }) {
   return {
     stockfishEval,
     moveClassifications,
+    multiPvLines,
     sendCommand,
     analysisFenRef,
     prepareClassification,

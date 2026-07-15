@@ -1,10 +1,11 @@
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
 import { useOnlineGame } from '../hooks/useOnlineGame';
 import OnlineLobby, { OnlineStatusBar } from '../OnlineLobby';
 import { BoardSkeleton } from '../components/SkeletonLoader';
+import { playMoveSound, findCheckedKingSquare, playSound } from '../lib/sound';
 
 const ChessboardContainer = React.lazy(() => import('../ChessboardContainer'));
 
@@ -51,6 +52,8 @@ export default function OnlinePage() {
 
         if (moveResult.san) setMoves(prev => [...prev, moveResult.san]);
 
+        playMoveSound(moveResult, gameCopy);
+
         // Check for game-ending conditions
         if (gameCopy.isCheckmate()) {
           const winner = gameCopy.turn() === 'w' ? 'black' : 'white';
@@ -73,9 +76,16 @@ export default function OnlinePage() {
   }, [online, applyOpponentMove]);
 
   // ─── Online: State Synchronization for Spectators ───
+  const fenRef = useRef(fen);
+  const movesRef = useRef(moves);
+  const historyRef = useRef(moveHistory);
+  useEffect(() => { fenRef.current = fen; }, [fen]);
+  useEffect(() => { movesRef.current = moves; }, [moves]);
+  useEffect(() => { historyRef.current = moveHistory; }, [moveHistory]);
+
   useEffect(() => {
     online.onStateRequested((spectatorId) => {
-      online.sendSyncState(spectatorId, fen, moves, moveHistory);
+      online.sendSyncState(spectatorId, fenRef.current, movesRef.current, historyRef.current);
     });
 
     online.onSyncStateReceived((syncedFen, syncedMoves, syncedHistory) => {
@@ -90,7 +100,7 @@ export default function OnlinePage() {
       setBoardOrientation('white');
       toast.success('Joined as Spectator');
     });
-  }, [online, fen, moves, moveHistory]);
+  }, [online]);
 
   // ─── Online: Reset board when game starts ───
   useEffect(() => {
@@ -110,6 +120,7 @@ export default function OnlinePage() {
       }
 
       setShowLobby(false);
+      playSound('notify');
       toast.success('🎮 Game started! You play as ' + (online.playerColor || 'white'));
     });
   }, [online]);
@@ -145,6 +156,8 @@ export default function OnlinePage() {
       toast.error('Illegal move!');
       return false; 
     }
+
+    playMoveSound(move, gameCopy);
 
     const newFen = gameCopy.fen();
     setFen(newFen);
@@ -192,6 +205,8 @@ export default function OnlinePage() {
     navigate('/');
   };
 
+  const checkedKingSquare = findCheckedKingSquare(game);
+
   const currentTurn = fen.split(' ')[1];
   const isMyTurn = online.playerColor
     ? (online.playerColor === 'white' ? currentTurn === 'w' : currentTurn === 'b')
@@ -220,6 +235,7 @@ export default function OnlinePage() {
               userColor={online.playerColor}
               isOnlineMode={true}
               isSpectator={online.playerColor === 'spectator'}
+              checkedKingSquare={checkedKingSquare}
             />
           </Suspense>
         </div>

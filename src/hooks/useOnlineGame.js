@@ -39,7 +39,7 @@ export function useOnlineGame() {
   const onStateRequestedRef = useRef(null);
   const onSyncStateReceivedRef = useRef(null);
 
-  // Cleanup channel subscription
+  // Cleanup channel subscription & callback refs
   const cleanup = useCallback(() => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
@@ -49,6 +49,10 @@ export function useOnlineGame() {
       supabase.removeChannel(lobbyChannelRef.current);
       lobbyChannelRef.current = null;
     }
+    onMoveReceivedRef.current = null;
+    onGameStartRef.current = null;
+    onStateRequestedRef.current = null;
+    onSyncStateReceivedRef.current = null;
   }, []);
 
   // Update presence in the global lobby (Host only)

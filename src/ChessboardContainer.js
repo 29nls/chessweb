@@ -8,9 +8,10 @@ const ChessboardContainer = ({
   lastMove,
   isAutoMoveEnabled,
   makeAutoOpponentMove,
-  userColor, // New prop for user's playing color
-  isOnlineMode = false, // Online mode: disable engine auto-move
+  userColor,
+  isOnlineMode = false,
   isSpectator = false,
+  checkedKingSquare = null,
 }) => {
   const prevFenRef = useRef(fen);
 
@@ -46,18 +47,21 @@ const ChessboardContainer = ({
             position: fen,
             onPieceDrop: onDrop,
             boardOrientation: boardOrientation,
-            animationDuration: 300,
-            arePiecesDraggable: !isSpectator,
+            animationDurationInMs: 300,
+            allowDragging: !isSpectator,
             allowDragOffBoard: false,
-            customDarkSquareStyle: { backgroundColor: 'var(--board-dark)' },
-            customLightSquareStyle: { backgroundColor: 'var(--board-light)' },
-            customBoardStyle: {
+            darkSquareStyle: { backgroundColor: 'var(--board-dark)' },
+            lightSquareStyle: { backgroundColor: 'var(--board-light)' },
+            boardStyle: {
               borderRadius: '6px',
               boxShadow: `0 5px 15px var(--shadow-color)`,
             },
-            customArrows: [
-              ...(lastMove ? [[lastMove.from, lastMove.to, 'var(--accent-primary)']] : []),
-            ],
+            arrows: lastMove
+              ? [{ startSquare: lastMove.from, endSquare: lastMove.to, color: 'var(--accent-primary)' }]
+              : [],
+            squareStyles: checkedKingSquare
+              ? { [checkedKingSquare]: { backgroundColor: 'rgba(255, 0, 0, 0.4)' } }
+              : {},
           }}
         />
       </div>

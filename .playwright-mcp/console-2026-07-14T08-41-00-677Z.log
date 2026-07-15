@@ -1,8 +1,0 @@
-[  421674ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4173/static/css/main.cad93839.css:0
-[  421677ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4173/static/js/main.c7686f5c.js:0
-[  421679ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4173/manifest.json:0
-[  421940ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4173/manifest.json:0
-[  711940ms] [ERROR] [BrowserEngine] worker error: Uncaught RuntimeError: Aborted(RangeError: WebAssembly.instantiate(): Out of memory: Cannot allocate Wasm memory for new instance). Build with -s ASSERTIONS=1 for more info. @ http://localhost:4173/static/js/main.c7686f5c.js:1
-[  711945ms] RuntimeError: Aborted(RangeError: WebAssembly.instantiate(): Out of memory: Cannot allocate Wasm memory for new instance). Build with -s ASSERTIONS=1 for more info.
-    at A (http://localhost:4173/stockfish/stockfish-18-lite-single.js:11:3927)
-    at http://localhost:4173/stockfish/stockfish-18-lite-single.js:11:12239
