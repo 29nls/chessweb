@@ -1,4 +1,10 @@
 import { render, screen } from '@testing-library/react';
+
+// Mock Vercel Analytics before importing App
+jest.mock('@vercel/analytics/react', () => ({
+  Analytics: () => null
+}), { virtual: true });
+
 import App from './App';
 
 // jsdom has no Worker global; stub it so the engine facade can initialize
