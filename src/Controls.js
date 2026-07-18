@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Upload,
   Download,
+  DownloadCloud,
   Play,
   User,
   Cpu
@@ -42,6 +43,7 @@ const Controls = ({
   onReset, onFlip, onUndo, onRedo, canUndo, canRedo,
   engineSettings, setEngineSettings, sendCommand,
   onFenClick, onPgnClick,
+  onImportClick,
   isAutoMoveEnabled, setIsAutoMoveEnabled,
   userColor, setUserColor,
   backendUrl,
@@ -111,6 +113,7 @@ const Controls = ({
         <div className="button-grid">
           <IconButton onClick={onFenClick} icon={<Download size={18} />} text="FEN" />
           <IconButton onClick={onPgnClick} icon={<Download size={18} />} text="PGN" />
+          <IconButton onClick={onImportClick} icon={<DownloadCloud size={18} />} text="Import" />
         </div>
       </Section>
 

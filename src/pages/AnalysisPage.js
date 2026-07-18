@@ -5,6 +5,7 @@ import Modal from '../Modal';
 import MoveHistory from '../MoveHistory';
 import { useChessEngine } from '../hooks/useChessEngine';
 import { useGameHistory } from '../hooks/useGameHistory';
+import { useGameImport } from '../hooks/useGameImport';
 import { BoardSkeleton, PanelSkeleton, MoveHistorySkeleton } from '../components/SkeletonLoader';
 import { playMoveSound, findCheckedKingSquare } from '../lib/sound';
 import OpeningExplorer from '../components/OpeningExplorer';
@@ -24,8 +25,12 @@ export default function AnalysisPage() {
 
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [fenInput, setFenInput] = useState('');
   const [pgnInput, setPgnInput] = useState('');
+  const [importSite, setImportSite] = useState('lichess');
+  const [importUsername, setImportUsername] = useState('');
+  const [importMaxGames, setImportMaxGames] = useState(3);
   const [pgnHeaders] = useState({
     Event: '?', Site: '?',
     Date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
@@ -49,6 +54,7 @@ export default function AnalysisPage() {
 
   // ── Custom Hooks ─────────────────────────────────────────
   const history = useGameHistory();
+  const gameImport = useGameImport();
 
   const handleBestMove = useCallback((gameCopy, moveResult) => {
     history.applyMove(gameCopy, moveResult);
@@ -225,6 +231,19 @@ export default function AnalysisPage() {
     } catch { toast.error('Invalid PGN string.'); }
   };
 
+  const handleLoadImportedGame = (pgn) => {
+    try {
+      engine.resetEval();
+      engine.resetClassifications();
+      history.importPgn(pgn, engine.sendCommand);
+      toast.success('PGN imported successfully!');
+      setShowImportModal(false);
+      gameImport.reset();
+    } catch {
+      toast.error('Could not load that game (invalid PGN).');
+    }
+  };
+
   // ── Skeleton Loading State ────────────────────────────────
   if (isLoading) {
     return (
@@ -281,6 +300,7 @@ export default function AnalysisPage() {
             sendCommand={engine.sendCommand}
             onFenClick={handleFenClick}
             onPgnClick={handlePgnClick}
+            onImportClick={() => setShowImportModal(true)}
             isAutoMoveEnabled={isAutoMoveEnabled}
             setIsAutoMoveEnabled={setIsAutoMoveEnabled}
             userColor={userColor}
@@ -325,6 +345,99 @@ export default function AnalysisPage() {
           <button className="button-primary" onClick={handleImportPgn}>Import</button>
           <button className="button-secondary" onClick={handleDownloadPgn}>Download .pgn</button>
         </div>
+      </Modal>
+
+      <Modal isOpen={showImportModal} onClose={() => setShowImportModal(false)} title="Import games">
+        {gameImport.status === 'idle' || gameImport.status === 'starting' || gameImport.status === 'polling' ? (
+          <>
+            <div className="control-group">
+              <label htmlFor="import-site">Chess site</label>
+              <select id="import-site" value={importSite} onChange={(e) => setImportSite(e.target.value)}>
+                <option value="lichess">Lichess</option>
+                <option value="chess.com">Chess.com</option>
+              </select>
+            </div>
+            <div className="control-group">
+              <label htmlFor="import-username">Username</label>
+              <input
+                id="import-username"
+                type="text"
+                value={importUsername}
+                onChange={(e) => setImportUsername(e.target.value)}
+                placeholder="Enter username"
+              />
+            </div>
+            <div className="control-group">
+              <label htmlFor="import-max-games">Number of games</label>
+              <select
+                id="import-max-games"
+                value={importMaxGames}
+                onChange={(e) => setImportMaxGames(parseInt(e.target.value, 10))}
+              >
+                {[1, 2, 3, 4, 5].map((number) => (
+                  <option key={number} value={number}>{number}</option>
+                ))}
+              </select>
+            </div>
+            {(gameImport.status === 'starting' || gameImport.status === 'polling') && (
+              <div className="import-status">
+                <span className="import-spinner" aria-hidden="true">⟳</span>
+                <span>{gameImport.lastStepSummary || 'Finding recent games...'}</span>
+                {gameImport.liveUrl && (
+                  <a href={gameImport.liveUrl} target="_blank" rel="noopener noreferrer">Watch live</a>
+                )}
+              </div>
+            )}
+            <div className="button-group">
+              <button
+                className="button-primary"
+                onClick={() => gameImport.start({
+                  site: importSite,
+                  username: importUsername.trim(),
+                  maxGames: importMaxGames,
+                })}
+                disabled={
+                  !importUsername.trim() ||
+                  gameImport.status === 'starting' ||
+                  gameImport.status === 'polling'
+                }
+              >
+                Import
+              </button>
+            </div>
+          </>
+        ) : gameImport.status === 'done' ? (
+          <>
+            {gameImport.games.length > 0 ? (
+              <div className="import-games-list">
+                {gameImport.games.map((game, index) => (
+                  <div className="import-game-row" key={`${game.url || game.pgn}-${index}`}>
+                    <div>
+                      <strong>{game.white || 'Unknown'} vs {game.black || 'Unknown'}</strong>
+                      <div>{game.result || '*'}{game.date ? ` · ${game.date}` : ''}</div>
+                    </div>
+                    <button
+                      className="button-secondary"
+                      onClick={() => handleLoadImportedGame(game.pgn)}
+                      disabled={!game.pgn}
+                    >
+                      Load
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No finished games were found.</p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="import-error">{gameImport.error}</p>
+            <div className="button-group">
+              <button className="button-secondary" onClick={gameImport.reset}>Try again</button>
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   );

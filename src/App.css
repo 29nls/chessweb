@@ -313,6 +313,57 @@ input[type="range"]::-moz-range-thumb {
   background-color: var(--bg-secondary);
 }
 
+.import-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.import-status a {
+  color: var(--accent-primary);
+  margin-left: auto;
+}
+
+.import-spinner {
+  animation: import-spin 1s linear infinite;
+}
+
+.import-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.import-game-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+}
+
+.import-game-row strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.import-game-row div div {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+
+.import-error {
+  color: #f28b82;
+}
+
+@keyframes import-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Responsive adjustments */
 @media (max-width: 1100px) {
   .App-body {

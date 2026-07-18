@@ -1,5 +1,10 @@
 {
     "framework": "create-react-app",
+    "functions": {
+        "api/import-games.js": {
+            "maxDuration": 60
+        }
+    },
     "headers": [
         {
             "source": "/(.*)",
