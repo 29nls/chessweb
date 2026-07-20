@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import './App.css';
 
 // Import Layout & Pages
@@ -34,6 +35,7 @@ function App() {
         theme="dark"
       />
       <Analytics />
+      <SpeedInsights />
     </Router>
   );
 }
