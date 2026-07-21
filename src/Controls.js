@@ -1,12 +1,5 @@
-const ENGINE_PRESETS = [
-  { label: 'Beginner', movetime: 500, depth: 10 },
-  { label: 'Intermediate', movetime: 2000, depth: 15 },
-  { label: 'Advanced', movetime: 5000, depth: 20 },
-  { label: 'Master', movetime: 10000, depth: 30 },
-];
-
 import React, { useState, useEffect } from 'react';
-import toast from 'react-toastify';
+import { toast } from 'react-toastify';
 import {
   RotateCcw,
   Repeat,
@@ -19,6 +12,13 @@ import {
   Eye,
   Cpu,
 } from 'react-feather';
+
+const ENGINE_PRESETS = [
+  { label: 'Beginner', movetime: 500, depth: 10 },
+  { label: 'Intermediate', movetime: 2000, depth: 15 },
+  { label: 'Advanced', movetime: 5000, depth: 20 },
+  { label: 'Master', movetime: 10000, depth: 30 },
+];
 
 const Section = ({ title, icon, children }) => (
   <div className="control-section">

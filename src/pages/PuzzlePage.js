@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef } from 'react';
-import Chess from 'chess.js';
-import toast from 'react-toastify';
+import { Chess } from 'chess.js';
+import { toast } from 'react-toastify';
 import { ChevronRight, RotateCcw, Shuffle, Star, Filter } from 'react-feather';
 import ChessboardContainer from '../ChessboardContainer';
-import getRandomPuzzle from '../data/puzzles';
-import playMoveSound from '../lib/sound';
+import { getRandomPuzzle } from '../data/puzzles';
+import { playMoveSound } from '../lib/sound';
 import './PuzzlePage.css';
 
 /** Difficulty rating thresholds */
