@@ -366,8 +366,6 @@ export default function OnlinePage() {
   }, [stopSyncInterval]);
 
   const handleSendMessage = useCallback((text) => {
-    const isPlayerWhite = online.playerColor === 'white';
-    const senderLabel = isPlayerWhite ? 'White' : 'Black';
     const id = ++chatIdCounter.current;
     setChatMessages(prev => [...prev, {
       id,
@@ -381,8 +379,6 @@ export default function OnlinePage() {
   }, [online]);
 
   const handleSendReaction = useCallback((emoji) => {
-    const isPlayerWhite = online.playerColor === 'white';
-    const senderLabel = isPlayerWhite ? 'White' : 'Black';
     const id = ++chatIdCounter.current;
     setChatMessages(prev => [...prev, {
       id,

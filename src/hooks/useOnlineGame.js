@@ -54,9 +54,6 @@ function getSavedGameState() {
   }
 }
 
-// Default time control: 5 minutes per side, no increment
-const DEFAULT_TIME_MS = 5 * 60 * 1000;
-
 // Time control presets for the lobby
 export const TIME_CONTROL_PRESETS = [
   { label: '1 min', initialMs: 1 * 60 * 1000 },
@@ -132,7 +129,12 @@ export function useOnlineGame() {
     onChatMessageRef.current = null;
     onReactionRef.current = null;
     onClockSyncRef.current = null;
-    stopClock();
+    if (clockIntervalRef.current) {
+      clearInterval(clockIntervalRef.current);
+      clockIntervalRef.current = null;
+    }
+    activeClockColorRef.current = null;
+    isClockRunningRef.current = false;
   }, []);
 
   // Update presence in the global lobby (Host only)
@@ -403,7 +405,14 @@ export function useOnlineGame() {
       }
     }
     if (timeMs != null) {
-      setTimeControl(timeMs);
+      setTimeControlMs(timeMs);
+      timeControlMsRef.current = timeMs;
+      if (timeMs > 0) {
+        whiteTimeRef.current = timeMs;
+        blackTimeRef.current = timeMs;
+        setWhiteTime(timeMs);
+        setBlackTime(timeMs);
+      }
     }
     setGameCode(code);
     setPlayerColor('white');
@@ -413,7 +422,7 @@ export function useOnlineGame() {
     saveGameState(code, 'white', 'waiting');
     subscribeToChannel(code, 'white');
     return code;
-  }, [subscribeToChannel, setTimeControl]);
+  }, [subscribeToChannel]);
 
   // Cek apakah slot warna sudah terisi di channel tertentu
   const checkSlotAvailability = useCallback(async (code, desiredColor) => {
@@ -731,7 +740,7 @@ export function useOnlineGame() {
         if (gameCode) saveGameState(gameCode, playerColor, 'finished');
       }
     }
-  }, [playerColor]);
+  }, [gameCode, playerColor]);
 
   // Leave the game and return to idle
   const leaveGame = useCallback(() => {
@@ -750,7 +759,7 @@ export function useOnlineGame() {
     setSpectatorCount(0);
     setGameResult(null);
     setError(null);
-  }, [cleanup]);
+  }, [cleanup, gameCode, playerColor]);
 
   // Register callbacks
   const onMoveReceived = useCallback((callback) => {

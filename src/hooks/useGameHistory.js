@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
-import { LABELS } from '../MoveClassification';
 
 /**
  * useGameHistory

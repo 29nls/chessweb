@@ -11,9 +11,6 @@
  * a JSON string encoded as base64url.
  */
 
-const PGN_PREFIX = 'pgn=';
-const RESULT_PREFIX = 'result=';
-
 /**
  * Encode game data into a query string for shareable URLs.
  * @param {string} pgn - The PGN string of the game

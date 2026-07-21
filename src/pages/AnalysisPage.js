@@ -11,7 +11,7 @@ import { playMoveSound, findCheckedKingSquare } from '../lib/sound';
 import OpeningExplorer from '../components/OpeningExplorer';
 import GameReview from '../components/GameReview';
 import { buildPgnWithNag } from '../MoveClassification';
-import { copyShareLink, generateShareUrl, decodeGameFromParams } from '../lib/share';
+import { copyShareLink, decodeGameFromParams } from '../lib/share';
 import { saveGame } from '../lib/gameHistory';
 
 // Lazy load heavy components for better initial load time
@@ -286,6 +286,7 @@ export default function AnalysisPage() {
         case 'ArrowRight': e.preventDefault(); h.redoMove(); break;
         case 'r': case 'R': e.preventDefault(); h.requestReset(); break;
         case 'f': case 'F': e.preventDefault(); h.flipBoard(); break;
+        default: break;
       }
     };
 
