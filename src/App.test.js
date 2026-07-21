@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react';
 
-// Mock Vercel Analytics before importing App
+// Mock Vercel Analytics and Speed Insights before importing App
 jest.mock('@vercel/analytics/react', () => ({
   Analytics: () => null
+}), { virtual: true });
+
+jest.mock('@vercel/speed-insights/react', () => ({
+  SpeedInsights: () => null
 }), { virtual: true });
 
 import App from './App';
