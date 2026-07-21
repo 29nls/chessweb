@@ -105,6 +105,22 @@
   background: var(--online-accent);
 }
 
+.landing-card.puzzle:hover, .landing-card.puzzle:focus-visible {
+  border-color: #a78bfa;
+}
+
+.landing-card.puzzle:hover .card-icon, .landing-card.puzzle:focus-visible .card-icon {
+  background: #a78bfa;
+}
+
+.landing-card.history:hover, .landing-card.history:focus-visible {
+  border-color: #f59e0b;
+}
+
+.landing-card.history:hover .card-icon, .landing-card.history:focus-visible .card-icon {
+  background: #f59e0b;
+}
+
 .landing-card.spectator:hover .card-icon, .landing-card.spectator:focus-visible .card-icon {
   background: var(--accent-primary-hover);
 }

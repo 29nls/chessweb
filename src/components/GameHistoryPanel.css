@@ -1,0 +1,215 @@
+/* ===== Game History Panel ===== */
+
+.gh-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.gh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gh-title {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.gh-count {
+  font-size: 0.75em;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+/* ── Loading skeleton ── */
+.gh-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gh-skeleton {
+  height: 64px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* ── Empty state ── */
+.gh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.gh-empty-icon {
+  font-size: 3em;
+}
+
+.gh-empty h3 {
+  margin: 0;
+  font-size: 1.1em;
+  color: var(--text-primary);
+}
+
+.gh-empty p {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+/* ── Game list ── */
+.gh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.gh-item {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.gh-item-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text-primary);
+}
+
+.gh-item-main:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-secondary);
+}
+
+.gh-item-main:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.gh-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gh-source {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-primary);
+}
+
+.gh-date {
+  font-size: 0.7em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.gh-item-bottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gh-result {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.gh-reason {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.gh-moves {
+  font-size: 0.7em;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.gh-replay-icon {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--accent-primary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+}
+
+.gh-item-main:hover .gh-replay-icon {
+  opacity: 1;
+}
+
+/* ── Delete button ── */
+.gh-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.gh-delete-btn:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.gh-delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.gh-delete-btn:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}

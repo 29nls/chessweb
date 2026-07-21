@@ -14,6 +14,8 @@ const ChessboardContainer = ({
   isOnlineMode = false,
   isSpectator = false,
   checkedKingSquare = null,
+  showArrow = true,
+  customSquareStyles = {},
 }) => {
   const prevFenRef = useRef(fen);
 
@@ -117,7 +119,8 @@ const ChessboardContainer = ({
   }, [fen, isAutoMoveEnabled, userColor, isOnlineMode]); // makeAutoOpponentMove dihilangkan dari deps -- pakai ref
 
   // Build square styles: legal move dots + check highlight + last move highlight
-  const squareStyles = {};
+  // Merge with any custom styles from parent (e.g., puzzle hints)
+  const squareStyles = { ...customSquareStyles };
 
   // Last move highlight
   if (lastMove) {
@@ -184,7 +187,7 @@ const ChessboardContainer = ({
               borderRadius: '6px',
               boxShadow: '0 5px 15px var(--shadow-color)',
             },
-            arrows: lastMove
+            arrows: lastMove && showArrow
               ? [{ startSquare: lastMove.from, endSquare: lastMove.to, color: 'var(--accent-primary)' }]
               : [],
             squareStyles: squareStyles,

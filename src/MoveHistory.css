@@ -103,3 +103,35 @@
   text-align: center;
   padding: 20px 0;
 }
+
+/* Responsive: Mobile */
+@media (max-width: 480px) {
+  .move-history-panel {
+    max-height: 300px;
+  }
+
+  .move-row {
+    grid-template-columns: 30px 1fr 1fr;
+    font-size: 0.75em;
+    padding: 3px 0;
+  }
+
+  .move-san {
+    font-size: 0.85em;
+  }
+
+  .move-badge {
+    font-size: 0.6em;
+    padding: 1px 4px;
+  }
+
+  .move-cell {
+    padding: 1px 4px;
+    gap: 4px;
+  }
+
+  .empty-move {
+    font-size: 0.75em;
+    padding: 12px 0;
+  }
+}

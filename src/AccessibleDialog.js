@@ -8,14 +8,24 @@ import './Modal.css';
  */
 const AccessibleDialog = ({ isOpen, onClose, labelledBy, describedBy, children, className = '' }) => {
   const dialogRef = useRef(null);
+  const previousFocusRef = useRef(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (isOpen) {
-      if (!dialog.open) dialog.showModal();
+      if (!dialog.open) {
+        previousFocusRef.current = document.activeElement;
+        dialog.showModal();
+      }
     } else {
-      if (dialog.open) dialog.close();
+      if (dialog.open) {
+        dialog.close();
+        // Restore focus to the element that triggered the dialog
+        if (previousFocusRef.current && previousFocusRef.current.focus) {
+          previousFocusRef.current.focus();
+        }
+      }
     }
   }, [isOpen]);
 

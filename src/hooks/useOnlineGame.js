@@ -13,12 +13,16 @@ function generateCode() {
 
 // Generate a random player ID persisted in localStorage
 function getPlayerId() {
-  let id = localStorage.getItem('chessweb_player_id');
-  if (!id) {
-    id = 'player_' + Math.random().toString(36).substring(2, 10);
-    localStorage.setItem('chessweb_player_id', id);
+  try {
+    let id = localStorage.getItem('chessweb_player_id');
+    if (!id) {
+      id = 'player_' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem('chessweb_player_id', id);
+    }
+    return id;
+  } catch {
+    return 'player_' + Math.random().toString(36).substring(2, 10);
   }
-  return id;
 }
 
 // Simpan state game untuk reconnect setelah refresh
@@ -50,6 +54,19 @@ function getSavedGameState() {
   }
 }
 
+// Default time control: 5 minutes per side, no increment
+const DEFAULT_TIME_MS = 5 * 60 * 1000;
+
+// Time control presets for the lobby
+export const TIME_CONTROL_PRESETS = [
+  { label: '1 min', initialMs: 1 * 60 * 1000 },
+  { label: '3 min', initialMs: 3 * 60 * 1000 },
+  { label: '5 min', initialMs: 5 * 60 * 1000 },
+  { label: '10 min', initialMs: 10 * 60 * 1000 },
+  { label: '30 min', initialMs: 30 * 60 * 1000 },
+  { label: 'Untimed', initialMs: 0 },
+];
+
 export function useOnlineGame() {
   // 'idle' | 'waiting' | 'playing' | 'finished'
   const [gameStatus, setGameStatus] = useState('idle');
@@ -59,6 +76,19 @@ export function useOnlineGame() {
   const [gameResult, setGameResult] = useState(null); // { winner, reason }
   const [error, setError] = useState(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
+
+  // ─── Clock State ───
+  const [timeControlMs, setTimeControlMs] = useState(0);
+  const [whiteTime, setWhiteTime] = useState(0);
+  const [blackTime, setBlackTime] = useState(0);
+  // Refs for interval to avoid stale closures
+  const whiteTimeRef = useRef(0);
+  const blackTimeRef = useRef(0);
+  const activeClockColorRef = useRef(null); // 'white' | 'black' | null
+  const clockIntervalRef = useRef(null);
+  const clockGameCodeRef = useRef('');
+  const isClockRunningRef = useRef(false);
+  const timeControlMsRef = useRef(0);
 
   const channelRef = useRef(null);
   const lobbyChannelRef = useRef(null);
@@ -77,6 +107,9 @@ export function useOnlineGame() {
   // Chat & Reaction callback refs
   const onChatMessageRef = useRef(null);
   const onReactionRef = useRef(null);
+
+  // Clock sync callback ref
+  const onClockSyncRef = useRef(null);
 
   // Cleanup channel subscription & callback refs
   const cleanup = useCallback(() => {
@@ -98,6 +131,8 @@ export function useOnlineGame() {
     onDrawRespondedRef.current = null;
     onChatMessageRef.current = null;
     onReactionRef.current = null;
+    onClockSyncRef.current = null;
+    stopClock();
   }, []);
 
   // Update presence in the global lobby (Host only)
@@ -191,6 +226,13 @@ export function useOnlineGame() {
       }
     });
 
+    // ─── Clock Sync Event ───
+    channel.on('broadcast', { event: 'clock_sync' }, ({ payload }) => {
+      if (payload.playerId !== playerIdRef.current && onClockSyncRef.current) {
+        onClockSyncRef.current(payload.whiteTime, payload.blackTime, payload.activeColor);
+      }
+    });
+
     // ─── Draw Events ───
     channel.on('broadcast', { event: 'draw_offer' }, ({ payload }) => {
       if (payload.playerId !== playerIdRef.current && onDrawOfferedRef.current) {
@@ -250,6 +292,47 @@ export function useOnlineGame() {
         updateLobbyPresence(code, pCount >= 2 ? 'playing' : 'waiting', pCount);
       }
 
+      // Race condition detection: if two players claimed the same color, resolve it
+      let blackCount = 0;
+      let whiteCount = 0;
+      Object.values(state).forEach(presences => {
+        presences.forEach(p => {
+          if (p.role === 'player') {
+            if (p.color === 'black') blackCount++;
+            if (p.color === 'white') whiteCount++;
+          }
+        });
+      });
+      if (color === 'black' && blackCount > 1) {
+        setError('Another player joined as Black at the same time. Please try again.');
+        // Leave gracefully instead of corrupting the game
+        if (lobbyChannelRef.current) supabase.removeChannel(lobbyChannelRef.current);
+        if (channelRef.current) supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        lobbyChannelRef.current = null;
+        clearGameState();
+        setGameStatus('idle');
+        setGameCode('');
+        setPlayerColor(null);
+        setOpponentConnected(false);
+        setSpectatorCount(0);
+        return; // Stop further processing
+      }
+      if (color === 'white' && whiteCount > 1) {
+        setError('Another player created a game with the same code. Please try again.');
+        if (lobbyChannelRef.current) supabase.removeChannel(lobbyChannelRef.current);
+        if (channelRef.current) supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        lobbyChannelRef.current = null;
+        clearGameState();
+        setGameStatus('idle');
+        setGameCode('');
+        setPlayerColor(null);
+        setOpponentConnected(false);
+        setSpectatorCount(0);
+        return;
+      }
+
       // If both players are present and we're waiting, start the game
       if (isOpponentHere && pCount >= 2) {
         setGameStatus(prev => {
@@ -299,8 +382,11 @@ export function useOnlineGame() {
   }, []);
 
   // Create a new game (I am white)
-  const createGame = useCallback(() => {
+  const createGame = useCallback((timeMs) => {
     const code = generateCode();
+    if (timeMs != null) {
+      setTimeControl(timeMs);
+    }
     setGameCode(code);
     setPlayerColor('white');
     setGameStatus('waiting');
@@ -309,7 +395,7 @@ export function useOnlineGame() {
     saveGameState(code, 'white', 'waiting');
     subscribeToChannel(code, 'white');
     return code;
-  }, [subscribeToChannel]);
+  }, [subscribeToChannel, setTimeControl]);
 
   // Cek apakah slot warna sudah terisi di channel tertentu
   const checkSlotAvailability = useCallback(async (code, desiredColor) => {
@@ -404,6 +490,107 @@ export function useOnlineGame() {
       });
     }
   }, []);
+
+  // Send clock sync to opponent — reads from refs for live values
+  const sendClockSync = useCallback((wt, bt, activeColor) => {
+    if (channelRef.current) {
+      const wTime = wt != null ? wt : whiteTimeRef.current;
+      const bTime = bt != null ? bt : blackTimeRef.current;
+      const active = activeColor || activeClockColorRef.current;
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'clock_sync',
+        payload: { whiteTime: wTime, blackTime: bTime, activeColor: active, playerId: playerIdRef.current },
+      });
+    }
+  }, []);
+
+  // ─── Clock management — uses refs to avoid stale closures ───
+
+  const handleFlagFall = useCallback((loserColor) => {
+    if (!clockIntervalRef.current) return; // Already handled
+    clearInterval(clockIntervalRef.current);
+    clockIntervalRef.current = null;
+    activeClockColorRef.current = null;
+    isClockRunningRef.current = false;
+    const winner = loserColor === 'white' ? 'black' : 'white';
+    setGameResult({ winner, reason: 'Time forfeit' });
+    setGameStatus('finished');
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast', event: 'game_over',
+        payload: { winner, reason: 'Time forfeit', playerId: playerIdRef.current },
+      });
+    }
+    if (clockGameCodeRef.current) saveGameState(clockGameCodeRef.current, playerColorRef.current, 'finished');
+  }, []);
+
+  const tickClock = useCallback(() => {
+    const active = activeClockColorRef.current;
+    const maxMs = timeControlMsRef.current;
+    if (!active || maxMs <= 0) return;
+
+    const newWt = active === 'white' ? Math.max(0, whiteTimeRef.current - 100) : whiteTimeRef.current;
+    const newBt = active === 'black' ? Math.max(0, blackTimeRef.current - 100) : blackTimeRef.current;
+
+    whiteTimeRef.current = newWt;
+    blackTimeRef.current = newBt;
+    setWhiteTime(newWt);
+    setBlackTime(newBt);
+
+    // Flag fall
+    if (newWt <= 0) {
+      handleFlagFall('white');
+    } else if (newBt <= 0) {
+      handleFlagFall('black');
+    }
+  }, [handleFlagFall]);
+
+  const startClock = useCallback((activeColor) => {
+    const maxMs = timeControlMsRef.current;
+    if (maxMs <= 0) return;
+    if (clockIntervalRef.current) {
+      clearInterval(clockIntervalRef.current);
+    }
+    activeClockColorRef.current = activeColor;
+    isClockRunningRef.current = true;
+    clockIntervalRef.current = setInterval(tickClock, 100);
+  }, [tickClock]);
+
+  const stopClock = useCallback(() => {
+    if (clockIntervalRef.current) {
+      clearInterval(clockIntervalRef.current);
+      clockIntervalRef.current = null;
+    }
+    activeClockColorRef.current = null;
+    isClockRunningRef.current = false;
+  }, []);
+
+  const setTimeControl = useCallback((initialMs) => {
+    setTimeControlMs(initialMs);
+    timeControlMsRef.current = initialMs;
+    if (initialMs > 0) {
+      whiteTimeRef.current = initialMs;
+      blackTimeRef.current = initialMs;
+      setWhiteTime(initialMs);
+      setBlackTime(initialMs);
+    }
+  }, []);
+
+  // Expose direct setters for clock sync drift correction
+  const setClockTimesFromSync = useCallback((wt, bt) => {
+    whiteTimeRef.current = wt;
+    blackTimeRef.current = bt;
+    setWhiteTime(wt);
+    setBlackTime(bt);
+  }, []);
+
+  // Player color ref for use in clock callbacks
+  const playerColorRef = useRef(playerColor);
+  useEffect(() => { playerColorRef.current = playerColor; }, [playerColor]);
+  useEffect(() => { clockGameCodeRef.current = gameCode; }, [gameCode]);
+  // Keep timeControlMsRef in sync
+  useEffect(() => { timeControlMsRef.current = timeControlMs; }, [timeControlMs]);
 
   // Send state sync to a spectator
   const sendSyncState = useCallback((targetId, fen, moves, history) => {
@@ -527,6 +714,10 @@ export function useOnlineGame() {
     onGameStartRef.current = callback;
   }, []);
 
+  const onClockSync = useCallback((callback) => {
+    onClockSyncRef.current = callback;
+  }, []);
+
   const onStateRequested = useCallback((callback) => {
     onStateRequestedRef.current = callback;
   }, []);
@@ -597,6 +788,18 @@ export function useOnlineGame() {
     gameResult,
     error,
 
+    // Clock state
+    timeControlMs,
+    whiteTime,
+    blackTime,
+
+    // Clock actions
+    startClock,
+    stopClock,
+    sendClockSync,
+    setTimeControl,
+    setClockTimesFromSync,
+
     // Actions
     createGame,
     joinGame,
@@ -616,6 +819,7 @@ export function useOnlineGame() {
     // Callbacks
     onMoveReceived,
     onGameStart,
+    onClockSync,
     onStateRequested,
     onSyncStateReceived,
     onTakebackRequested,

@@ -9,6 +9,10 @@ import { useGameHistory } from '../hooks/useGameHistory';
 import { BoardSkeleton, PanelSkeleton, MoveHistorySkeleton } from '../components/SkeletonLoader';
 import { playMoveSound, findCheckedKingSquare } from '../lib/sound';
 import OpeningExplorer from '../components/OpeningExplorer';
+import GameReview from '../components/GameReview';
+import { buildPgnWithNag } from '../MoveClassification';
+import { copyShareLink, generateShareUrl, decodeGameFromParams } from '../lib/share';
+import { saveGame } from '../lib/gameHistory';
 
 // Lazy load heavy components for better initial load time
 const EvaluationSection = React.lazy(() => import('../EvaluationSection'));
@@ -23,11 +27,18 @@ export default function AnalysisPage() {
   const [isAutoMoveEnabled, setIsAutoMoveEnabled] = useState(false);
   const [multiPv, setMultiPv] = useState(1);
 
+  // Reset confirmation dialog
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   // Promotion dialog state
   const [promotionPending, setPromotionPending] = useState(null); // { sourceSquare, targetSquare, side }
 
   // Game over banner state
+  const [showArrow, setShowArrow] = useState(true);
   const [gameOverBanner, setGameOverBanner] = useState(null);
+  const [gameResult, setGameResult] = useState(null); // { winner: 'white'|'black'|'draw'|null, reason: string }
+  const [showGameReview, setShowGameReview] = useState(false);
+  const savedGameIdRef = useRef(null);
 
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
@@ -60,11 +71,12 @@ export default function AnalysisPage() {
   const handleBestMove = useCallback((gameCopy, moveResult) => {
     history.applyMove(gameCopy, moveResult, history.historyPointer, history.moves);
     playMoveSound(moveResult, gameCopy);
-    // Deteksi game over juga untuk engine auto-move
     if (gameCopy.isCheckmate()) {
       const winner = gameCopy.turn() === 'w' ? 'Black' : 'White';
+      setGameResult({ winner: winner.toLowerCase(), reason: 'Checkmate' });
       setGameOverBanner(`♛ Checkmate! ${winner} wins!`);
     } else if (gameCopy.isDraw()) {
+      setGameResult({ winner: 'draw', reason: 'Draw' });
       setGameOverBanner('🤝 Game ended in a draw');
     }
   }, [history]);
@@ -89,6 +101,31 @@ export default function AnalysisPage() {
     }
     if (boardOrientation === 'black') whiteHeight = 100 - whiteHeight;
   }
+
+  // ── Auto-import shared game from URL params ──────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const { pgn: sharedPgn, result: sharedResult } = decodeGameFromParams(params);
+    if (sharedPgn) {
+      try {
+        history.importPgn(sharedPgn, engine.sendCommand);
+        if (sharedResult) {
+          setGameResult(sharedResult);
+          if (sharedResult.winner === 'draw') {
+            setGameOverBanner('🤝 ' + (sharedResult.reason || 'Draw'));
+          } else {
+            const winnerLabel = sharedResult.winner === 'white' ? 'White' : 'Black';
+            setGameOverBanner(`♛ ${winnerLabel} wins!` + (sharedResult.reason ? ' (' + sharedResult.reason + ')' : ''));
+          }
+        }
+        // Clean URL params after importing (keep the path clean)
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (err) {
+        console.warn('Failed to import shared game:', err);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Loading timer ─────────────────────────────────────────
   useEffect(() => {
@@ -133,14 +170,17 @@ export default function AnalysisPage() {
     // Check for game-ending conditions
     if (gameCopy.isCheckmate()) {
       const winner = gameCopy.turn() === 'w' ? 'Black' : 'White';
+      setGameResult({ winner: winner.toLowerCase(), reason: 'Checkmate' });
       setGameOverBanner(`♛ Checkmate! ${winner} wins!`);
     } else if (gameCopy.isStalemate()) {
+      setGameResult({ winner: 'draw', reason: 'Stalemate' });
       setGameOverBanner('🤝 Stalemate! The game is a draw.');
     } else if (gameCopy.isDraw()) {
       let reason = 'Draw';
       if (gameCopy.isThreefoldRepetition()) reason = 'Threefold repetition';
       else if (gameCopy.isInsufficientMaterial()) reason = 'Insufficient material';
       else reason = 'Draw';
+      setGameResult({ winner: 'draw', reason });
       setGameOverBanner(`🤝 ${reason}`);
     }
 
@@ -180,11 +220,44 @@ export default function AnalysisPage() {
     if (result.addLabel) engine.addClassification(result.addLabel);
   };
 
-  const resetGame = () => {
+  // ── Auto-save game to DB when it ends ──
+  useEffect(() => {
+    if (gameResult && !savedGameIdRef.current && history.moves.length > 0) {
+      const pgn = buildPgnWithNag(pgnHeaders, history.moves, engine.moveClassifications);
+      saveGame({
+        pgn,
+        result: gameResult,
+        moves: history.moves,
+        fen: history.fen,
+        source: 'analysis',
+      }).then(saved => {
+        if (saved) {
+          savedGameIdRef.current = saved.id;
+          toast.success('Game saved to history!', { autoClose: 2000 });
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameResult]);
+
+  const confirmReset = () => {
+    setShowResetConfirm(false);
+    setShowGameReview(false);
     setGameOverBanner(null);
+    setGameResult(null);
+    savedGameIdRef.current = null;
     engine.resetEval();
     engine.resetClassifications();
     history.reset(engine.sendCommand);
+  };
+
+  const requestReset = () => {
+    // If no moves have been played, reset immediately
+    if (history.moves.length === 0) {
+      confirmReset();
+    } else {
+      setShowResetConfirm(true);
+    }
   };
 
   const handleMultiPvChange = (value) => {
@@ -198,18 +271,21 @@ export default function AnalysisPage() {
 
   // ── Keyboard Shortcuts ────────────────────────────────────
   const keyHandlers = useRef({});
-  keyHandlers.current = { undoMove, redoMove, resetGame, flipBoard };
+  const modalStateRef = useRef(false);
+  modalStateRef.current = showFenModal || showPgnModal || showResetConfirm || promotionPending !== null;
+  keyHandlers.current = { undoMove, redoMove, requestReset, flipBoard };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't trigger shortcuts when typing in inputs
+      // Don't trigger shortcuts when typing in inputs or when modals are open
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+      if (modalStateRef.current) return;
 
       const h = keyHandlers.current;
       switch (e.key) {
         case 'ArrowLeft': e.preventDefault(); h.undoMove(); break;
         case 'ArrowRight': e.preventDefault(); h.redoMove(); break;
-        case 'r': case 'R': e.preventDefault(); h.resetGame(); break;
+        case 'r': case 'R': e.preventDefault(); h.requestReset(); break;
         case 'f': case 'F': e.preventDefault(); h.flipBoard(); break;
       }
     };
@@ -244,15 +320,9 @@ export default function AnalysisPage() {
 
   const handlePgnClick = () => {
     try {
-      const buildPGN = (headers, movesArray) => {
-        const headerLines = Object.entries(headers).map(([k, v]) => `[${k} "${v}"]`).join('\n');
-        const exportGame = new Chess();
-        (movesArray || []).forEach((m) => exportGame.move(m, { sloppy: true }));
-        let movesStr = exportGame.pgn();
-        movesStr = movesStr.replace(/^(?:\[.*\]\s*)+/g, '').trim();
-        return `${headerLines}\n\n${movesStr}`.trim();
-      };
-      const pgnStr = buildPGN(pgnHeaders, history.moves.length > 0 ? history.moves : history.game.history());
+      const movesArray = history.moves.length > 0 ? history.moves : history.game.history();
+      // Use buildPgnWithNag which injects NAG ($1-$6) annotations from classifications
+      const pgnStr = buildPgnWithNag(pgnHeaders, movesArray, engine.moveClassifications);
       setPgnInput(pgnStr);
     } catch {
       setPgnInput(history.game.pgn());
@@ -334,13 +404,14 @@ export default function AnalysisPage() {
               isOnlineMode={false}
               isSpectator={false}
               checkedKingSquare={checkedKingSquare}
+              showArrow={showArrow}
             />
           </Suspense>
         </div>
 
         <Suspense fallback={<PanelSkeleton />}>
           <Controls
-            onReset={resetGame}
+            onReset={requestReset}
             onFlip={flipBoard}
             onUndo={undoMove}
             onRedo={redoMove}
@@ -360,6 +431,8 @@ export default function AnalysisPage() {
             isOnlineMode={false}
             multiPv={multiPv}
             onMultiPvChange={handleMultiPvChange}
+            showArrow={showArrow}
+            onShowArrowChange={setShowArrow}
           />
         </Suspense>
 
@@ -370,17 +443,60 @@ export default function AnalysisPage() {
         </Suspense>
 
         {/* Game Over Banner */}
+        {/* Reset Confirmation Dialog */}
+        {showResetConfirm && (
+          <AccessibleDialog isOpen={true} onClose={() => setShowResetConfirm(false)} labelledBy="reset-confirm-title">
+            <div className="reset-confirm-dialog">
+              <h2 id="reset-confirm-title">Reset Game?</h2>
+              <p>This will clear the board, move history, and all evaluations. This action cannot be undone.</p>
+              <div className="button-group">
+                <button className="button-secondary" onClick={() => setShowResetConfirm(false)}>Cancel</button>
+                <button className="button-danger" onClick={confirmReset}>Reset Game</button>
+              </div>
+            </div>
+          </AccessibleDialog>
+        )}
+
         {gameOverBanner && (
           <div className="game-over-banner" role="alert">
             <span className="game-over-text">{gameOverBanner}</span>
-            <button className="button-primary" onClick={resetGame} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
+            <button className="button-primary" onClick={requestReset} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
               New Game
+            </button>
+            <button className="button-secondary" onClick={() => setShowGameReview(true)} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
+              Review Game
+            </button>
+            <button
+              className="button-secondary"
+              onClick={async () => {
+                try {
+                  const pgn = buildPgnWithNag(pgnHeaders, history.moves, engine.moveClassifications);
+                  const ok = await copyShareLink(pgn, gameResult, 'Share game link');
+                  if (ok) toast.success('Share link copied to clipboard!');
+                  else toast.error('Failed to copy share link');
+                } catch {
+                  toast.error('Failed to generate share link');
+                }
+              }}
+              style={{ padding: '8px 20px', fontSize: '0.9em' }}
+            >
+              Share
             </button>
             <button className="button-secondary" onClick={() => setGameOverBanner(null)} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
               Dismiss
             </button>
           </div>
         )}
+
+        {/* Game Review Modal */}
+        <GameReview
+          isOpen={showGameReview}
+          onClose={() => setShowGameReview(false)}
+          onNewGame={requestReset}
+          classifications={engine.moveClassifications}
+          moves={history.moves}
+          result={gameResult}
+        />
 
         {/* Promotion Dialog - menggunakan AccessibleDialog native <dialog> untuk konsistensi aksesibilitas */}
         {promotionPending && (

@@ -33,6 +33,26 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     multiPvRef.current = multiPv;
   }, [stockfishEval, fen, multiPv]);
 
+  // Use refs for engine settings so changing them doesn't recreate the engine
+  const threadsRef = useRef(threads);
+  const hashSizeRef = useRef(hashSize);
+  const multiPvRefForConnect = useRef(multiPv);
+
+  useEffect(() => {
+    threadsRef.current = threads;
+    hashSizeRef.current = hashSize;
+    multiPvRefForConnect.current = multiPv;
+  }, [threads, hashSize, multiPv]);
+
+  // Separate effect: send setoption when settings change, no engine recreation
+  useEffect(() => {
+    if (engine.current) {
+      sendCommand(`setoption name Threads value ${threads}`);
+      sendCommand(`setoption name Hash value ${hashSize}`);
+      sendCommand(`setoption name MultiPV value ${multiPv}`);
+    }
+  }, [threads, hashSize, multiPv, sendCommand]);
+
   const sendCommand = useCallback((command) => {
     if (engine.current) {
       engine.current.sendCommand(command);
@@ -62,7 +82,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
         if (idx === 0) {
           // Normalisasi skor ke perspektif Putih: Stockfish report relative-to-side-to-move
           const turn = fenRef.current.split(' ')[1];
-          if (lineEval.type === 'cp' && turn === 'b') {
+          if (turn === 'b') {
             lineEval.score = -lineEval.score;
           }
           setStockfishEval(lineEval);
@@ -82,7 +102,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
           // Normalisasi: new position punya turn = !sideThatMoved
           // Kalau sideThatMoved = 'w', new position punya black's turn → Stockfish score dari perspektif hitam → negate
           const evalTurn = pendingSideRef.current;
-          if (data.score.type === 'cp' && evalTurn === 'w') {
+          if (evalTurn === 'w') {
             afterScore = -afterScore;
           }
 
@@ -125,9 +145,9 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
 
     engine.current.onConnect(() => {
       sendCommand('uci');
-      sendCommand(`setoption name Threads value ${threads}`);
-      sendCommand(`setoption name Hash value ${hashSize}`);
-      sendCommand(`setoption name MultiPV value ${multiPv}`);
+      sendCommand(`setoption name Threads value ${threadsRef.current}`);
+      sendCommand(`setoption name Hash value ${hashSizeRef.current}`);
+      sendCommand(`setoption name MultiPV value ${multiPvRefForConnect.current}`);
       sendCommand('isready');
     });
 
@@ -136,7 +156,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
       engine.current.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engineMode, backendUrl, threads, hashSize, multiPv, sendCommand]);
+  }, [engineMode, backendUrl, sendCommand]);
 
   const prepareClassification = useCallback((side) => {
     evalBeforeRef.current = stockfishEvalRef.current.score;

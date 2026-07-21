@@ -545,3 +545,48 @@ input[type="range"]::-moz-range-thumb {
     font-size: 0.75em;
   }
 }
+
+/* Reset Confirmation Dialog */
+.reset-confirm-dialog {
+  text-align: center;
+  padding: 16px;
+}
+
+.reset-confirm-dialog h2 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+}
+
+.reset-confirm-dialog p {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.reset-confirm-dialog .button-group {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.button-danger {
+  background: linear-gradient(135deg, #e53935, #c62828);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.button-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(229, 57, 53, 0.4);
+}
+
+.button-danger:active {
+  transform: translateY(0);
+}

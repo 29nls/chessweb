@@ -6,6 +6,8 @@ import { useOnlineGame } from '../hooks/useOnlineGame';
 import OnlineLobby, { OnlineStatusBar } from '../OnlineLobby';
 import { BoardSkeleton } from '../components/SkeletonLoader';
 import { playMoveSound, findCheckedKingSquare, playSound } from '../lib/sound';
+import { copyShareLink } from '../lib/share';
+import { saveGame } from '../lib/gameHistory';
 
 const ChessboardContainer = React.lazy(() => import('../ChessboardContainer'));
 
@@ -36,8 +38,51 @@ export default function OnlinePage() {
 
   // Chat & Reactions state
   const [chatMessages, setChatMessages] = useState([]);
+  const chatIdCounter = useRef(0);
 
   const online = useOnlineGame();
+
+  // ─── Clock management helpers ───
+  const turnRef = useRef('w');
+  const syncIntervalRef = useRef(null);
+
+  // Store whiteTime/blackTime in refs so setInterval callback gets live values
+  const whiteTimeRefForSync = useRef(0);
+  const blackTimeRefForSync = useRef(0);
+  useEffect(() => { whiteTimeRefForSync.current = online.whiteTime; }, [online.whiteTime]);
+  useEffect(() => { blackTimeRefForSync.current = online.blackTime; }, [online.blackTime]);
+
+  // Stop any existing sync interval
+  const stopSyncInterval = useCallback(() => {
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
+    }
+  }, []);
+
+  // Start periodic clock sync broadcast (every 2s while clock is running)
+  // sendClockSync reads from internal refs for live values when args are omitted
+  const startSyncInterval = useCallback(() => {
+    stopSyncInterval();
+    syncIntervalRef.current = setInterval(() => {
+      online.sendClockSync();  // No args => reads from whiteTimeRef/blackTimeRef internally
+    }, 2000);
+  }, [online, stopSyncInterval]);
+
+  // Switch active clock after a move
+  const switchClockAfterMove = useCallback((fromTurn) => {
+    if (online.timeControlMs <= 0) return;
+    const nextTurn = fromTurn === 'w' ? 'b' : 'w';
+    turnRef.current = nextTurn;
+    online.stopClock();
+    const nextColor = nextTurn === 'w' ? 'white' : 'black';
+    online.startClock(nextColor);
+    startSyncInterval();
+    // Broadcast clock state after switching — sendClockSync reads live refs
+    setTimeout(() => {
+      online.sendClockSync();
+    }, 0);
+  }, [online, startSyncInterval]);
 
   // ─── Online: Register move received callback ───
   const applyOpponentMove = useCallback((payload) => {
@@ -64,6 +109,9 @@ export default function OnlinePage() {
 
         playMoveSound(moveResult, gameCopy);
 
+        // Switch clock: stop opponent's, start mine
+        switchClockAfterMove(gameCopy.turn() === 'w' ? 'b' : 'w');
+
         // Check for game-ending conditions
         if (gameCopy.isCheckmate()) {
           const winner = gameCopy.turn() === 'w' ? 'black' : 'white';
@@ -79,7 +127,7 @@ export default function OnlinePage() {
     } catch (err) {
       console.warn('Failed to apply opponent move:', err);
     }
-  }, [fen, online]);
+  }, [fen, online, switchClockAfterMove]);
 
   useEffect(() => {
     online.onMoveReceived(applyOpponentMove);
@@ -117,6 +165,7 @@ export default function OnlinePage() {
   // ─── Online: Reset board when game starts ───
   useEffect(() => {
     online.onGameStart(() => {
+      savedGameIdRef.current = null; // Reset for new game
       const newGame = new Chess();
       const initialFen = newGame.fen();
       setGame(newGame);
@@ -125,6 +174,7 @@ export default function OnlinePage() {
       setLastMove(null);
       setMoveHistory([initialFen]);
       setHistoryPointer(0);
+      turnRef.current = 'w';
 
       // Reset takeback/draw state on new game
       setPendingTakeback(false);
@@ -137,11 +187,22 @@ export default function OnlinePage() {
         setBoardOrientation(online.playerColor);
       }
 
+      // Initialize and start clock if time control is set
+      if (online.timeControlMs > 0) {
+        // White (host) already set the time control on createGame
+        // Black receives via clock_sync from White
+        if (online.playerColor === 'white') {
+          online.startClock('white');
+          startSyncInterval();
+          online.sendClockSync(online.whiteTime, online.blackTime, 'white');
+        }
+      }
+
       setShowLobby(false);
       playSound('notify');
       toast.success('🎮 Game started! You play as ' + (online.playerColor || 'white'));
     });
-  }, [online]);
+  }, [online, startSyncInterval]);
 
   // ─── Online: Takeback lifecycle ───
   useEffect(() => {
@@ -220,7 +281,9 @@ export default function OnlinePage() {
     online.onChatMessage((text, senderColor, senderId) => {
       const isPlayerWhite = senderColor === 'white';
       const senderLabel = isPlayerWhite ? 'White' : 'Black';
+      const id = ++chatIdCounter.current;
       setChatMessages(prev => [...prev, {
+        id,
         type: 'text',
         text,
         sender: senderLabel,
@@ -232,7 +295,9 @@ export default function OnlinePage() {
     online.onReaction((emoji, senderColor, senderId) => {
       const isPlayerWhite = senderColor === 'white';
       const senderLabel = isPlayerWhite ? 'White' : 'Black';
+      const id = ++chatIdCounter.current;
       setChatMessages(prev => [...prev, {
+        id,
         type: 'reaction',
         text: emoji,
         sender: senderLabel,
@@ -246,10 +311,66 @@ export default function OnlinePage() {
     });
   }, [online]);
 
+  // ─── Online: Clock Sync — correct drift when opponent sends sync ───
+  useEffect(() => {
+    online.onClockSync((wt, bt) => {
+      // Update refs for continuous sync
+      whiteTimeRefForSync.current = wt;
+      blackTimeRefForSync.current = bt;
+      // Correct drift if it exceeds 2 seconds (avoids jitter from minor divergence)
+      if (Math.abs(wt - online.whiteTime) > 2000) {
+        online.setClockTimesFromSync(wt, online.blackTime);
+      }
+      if (Math.abs(bt - online.blackTime) > 2000) {
+        online.setClockTimesFromSync(online.whiteTime, bt);
+      }
+    });
+  }, [online]);
+
+  // ─── Online: Stop clock + save game on finish ───
+  const savedGameIdRef = useRef(null);
+
+  useEffect(() => {
+    if (online.gameStatus === 'finished') {
+      online.stopClock();
+      stopSyncInterval();
+
+      // Save the game to DB (only once)
+      if (savedGameIdRef.current === null && movesRef.current.length > 0) {
+        saveGame({
+          pgn: (() => {
+            try {
+              const g = new Chess();
+              movesRef.current.forEach(m => g.move(m, { sloppy: true }));
+              return g.pgn();
+            } catch { return ''; }
+          })(),
+          result: online.gameResult,
+          moves: movesRef.current,
+          fen: fenRef.current,
+          source: 'online',
+          gameCode: online.gameCode,
+          playerWhite: 'Player 1',
+          playerBlack: 'Player 2',
+          timeControlMs: online.timeControlMs,
+        }).then(saved => {
+          if (saved) savedGameIdRef.current = saved.id;
+        });
+      }
+    }
+  }, [online.gameStatus, online, stopSyncInterval]);
+
+  // ─── Cleanup sync interval on unmount ───
+  useEffect(() => {
+    return () => stopSyncInterval();
+  }, [stopSyncInterval]);
+
   const handleSendMessage = useCallback((text) => {
     const isPlayerWhite = online.playerColor === 'white';
     const senderLabel = isPlayerWhite ? 'White' : 'Black';
+    const id = ++chatIdCounter.current;
     setChatMessages(prev => [...prev, {
+      id,
       type: 'text',
       text,
       sender: 'You',
@@ -262,7 +383,9 @@ export default function OnlinePage() {
   const handleSendReaction = useCallback((emoji) => {
     const isPlayerWhite = online.playerColor === 'white';
     const senderLabel = isPlayerWhite ? 'White' : 'Black';
+    const id = ++chatIdCounter.current;
     setChatMessages(prev => [...prev, {
+      id,
       type: 'reaction',
       text: emoji,
       sender: 'You',
@@ -328,6 +451,9 @@ export default function OnlinePage() {
       promotion: moveOptions.promotion || null,
       san: move.san,
     });
+
+    // Switch clock: stop my clock, start opponent's
+    switchClockAfterMove(gameCopy.turn() === 'w' ? 'b' : 'w');
 
     if (gameCopy.isCheckmate()) {
       const winner = gameCopy.turn() === 'w' ? 'black' : 'white';
@@ -412,6 +538,10 @@ export default function OnlinePage() {
               setPendingDraw(false);
               setDrawRequestState(null);
             }}
+                    // Clock props
+            whiteTime={online.whiteTime}
+            blackTime={online.blackTime}
+            timeControlMs={online.timeControlMs}
             // Chat props
             messages={chatMessages}
             onSendMessage={handleSendMessage}
@@ -449,6 +579,19 @@ export default function OnlinePage() {
         onJoinSpectator={online.joinAsSpectator}
         onResign={online.resign}
         onLeaveGame={handleLeaveOnlineGame}
+        onShareReplay={async () => {
+          // Build PGN by replaying moves on a fresh Chess instance
+          try {
+            const g = new Chess();
+            movesRef.current.forEach(m => g.move(m, { sloppy: true }));
+            const pgn = g.pgn();
+            const ok = await copyShareLink(pgn, online.gameResult);
+            if (ok) toast.success('Replay link copied!');
+            else toast.error('Failed to copy replay link');
+          } catch {
+            toast.error('Failed to generate replay link');
+          }
+        }}
       />
     </div>
   );

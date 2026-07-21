@@ -21,10 +21,10 @@ const EvaluationSection = ({ evaluation, multiPvLines = [], whiteHeight = 50, is
 
   const EvalItem = ({ icon, label, value }) => (
     <div className="eval-item">
-      <div className="eval-icon">{icon}</div>
+      <div className="eval-icon" aria-hidden="true">{icon}</div>
       <div className="eval-data">
-        <span className="eval-label">{label}</span>
-        <span className="eval-value">{value}</span>
+        <span className="eval-label" id={`eval-label-${label}`}>{label}</span>
+        <span className="eval-value" aria-labelledby={`eval-label-${label}`}>{value}</span>
       </div>
     </div>
   );

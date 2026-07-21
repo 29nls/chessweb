@@ -30,7 +30,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
   }, [onClose]);
 
   return (
-    <dialog ref={dialogRef} className="modal-dialog" aria-labelledby="modal-title">
+    <dialog ref={dialogRef} className="modal-dialog" aria-labelledby="modal-title" aria-describedby="modal-desc">
       <div className="modal-content">
         <div className="modal-header">
           <h2 id="modal-title">{title}</h2>
@@ -38,7 +38,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
             &times;
           </button>
         </div>
-        <div className="modal-body">
+        <div className="modal-body" id="modal-desc">
           {children}
         </div>
       </div>

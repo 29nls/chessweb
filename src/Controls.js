@@ -6,7 +6,7 @@ const ENGINE_PRESETS = [
 ];
 
 import React, { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
+import toast from 'react-toastify';
 import {
   RotateCcw,
   Repeat,
@@ -16,21 +16,28 @@ import {
   Download,
   Play,
   User,
-  Cpu
+  Eye,
+  Cpu,
 } from 'react-feather';
 
 const Section = ({ title, icon, children }) => (
   <div className="control-section">
     <h3 className="section-title">
-      {icon}
+      <span aria-hidden="true">{icon}</span>
       <span>{title}</span>
     </h3>
     <div className="section-content">{children}</div>
   </div>
 );
 
-const IconButton = ({ onClick, icon, text, disabled = false, shortcut = '' }) => (
-  <button onClick={onClick} className="icon-button" disabled={disabled} title={shortcut ? `${text} (${shortcut})` : text}>
+const IconButton = ({ onClick, icon, text, disabled = false, shortcut }) => (
+  <button
+    onClick={onClick}
+    className="icon-button"
+    disabled={disabled}
+    title={shortcut ? `${text} (${shortcut})` : text}
+    aria-label={shortcut ? `${text} (${shortcut})` : text}
+  >
     {icon}
     <span>{text}</span>
     {shortcut && <kbd className="shortcut-hint">{shortcut}</kbd>}
@@ -42,7 +49,7 @@ const Toggle = ({ label, checked, onChange }) => (
     <label>
       {label}
       <input type="checkbox" checked={checked} onChange={onChange} />
-      <span className="slider"></span>
+      <span className="slider" aria-hidden="true"></span>
     </label>
   </div>
 );
@@ -58,6 +65,8 @@ const Controls = ({
   isOnlineMode = false,
   multiPv = 1,
   onMultiPvChange,
+  showArrow = true,
+  onShowArrowChange,
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
@@ -85,14 +94,14 @@ const Controls = ({
       fetch(`${backendUrl}/api/select-engine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ engineName }),
+        body: JSON.stringify({ engine: engineName }),
       })
         .then((res) => res.json())
         .then((data) => console.log(data.message))
         .catch((err) => console.error('Error selecting engine:', err));
     }
   };
-  
+
   const handleThreadsChange = (e) => {
     const value = parseInt(e.target.value, 10);
     setEngineSettings.setThreads(value);
@@ -108,7 +117,7 @@ const Controls = ({
   const handlePresetChange = (e) => {
     const value = e.target.value;
     if (!value) return;
-    const preset = ENGINE_PRESETS.find(p => p.label === value);
+    const preset = ENGINE_PRESETS.find((p) => p.label === value);
     if (!preset) return;
     setEngineSettings.setMovetime(preset.movetime);
     setEngineSettings.setDepth(preset.depth);
@@ -142,10 +151,18 @@ const Controls = ({
             <option value="black">Black</option>
           </select>
         </div>
-        <Toggle 
+        <Toggle
           label="Auto-move Opponent"
           checked={isAutoMoveEnabled}
           onChange={(e) => setIsAutoMoveEnabled(e.target.checked)}
+        />
+      </Section>
+
+      <Section title="Display" icon={<Eye size={20} />}>
+        <Toggle
+          label="Last-move arrow"
+          checked={showArrow}
+          onChange={(e) => onShowArrowChange(e.target.checked)}
         />
       </Section>
 
@@ -153,66 +170,75 @@ const Controls = ({
         <div className="control-group">
           <label htmlFor="engine-select">Chess Engine</label>
           <select id="engine-select" value={selectedEngine} onChange={handleEngineChange}>
-            {engines.map(engine => (
+            {engines.map((engine) => (
               <option key={engine} value={engine}>{engine}</option>
             ))}
           </select>
         </div>
-        
-        {!engineSettings.isDepthAnalysisEnabled ? (
+
+        {!engineSettings.isDepthAnalysisEnabled && (
           <div className="control-group">
             <label htmlFor="movetime">Analysis Time (ms)</label>
             <select id="movetime" value={engineSettings.movetime} onChange={(e) => setEngineSettings.setMovetime(parseInt(e.target.value, 10))}>
-              {[1000, 2000, 3000, 5000, 10000].map(time => (
+              {[1000, 2000, 3000, 5000, 10000].map((time) => (
                 <option key={time} value={time}>{time}</option>
               ))}
             </select>
           </div>
-        ) : (
-          <div className="control-group">
-            <label htmlFor="depth">Search Depth</label>
-            <select id="depth" value={engineSettings.depth} onChange={(e) => setEngineSettings.setDepth(parseInt(e.target.value, 10))}>
-              {[10, 15, 20, 25, 30].map(d => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-          </div>
         )}
-        {engineMode === 'backend' && (
-          <div className="control-group" title="Threads setting hanya efektif di mode backend">
+
+        <div className="control-group">
+          <label htmlFor="depth">Search Depth</label>
+          <select id="depth" value={engineSettings.depth} onChange={(e) => setEngineSettings.setDepth(parseInt(e.target.value, 10))}>
+            {[10, 15, 20, 25, 30].map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+
+        {engineMode === 'backend' ? (
+          <div className="control-group" title="CPU threads for engine analysis">
             <label htmlFor="threads">CPU Threads: {engineSettings.threads}</label>
             <input type="range" id="threads" min="1" max={engineSettings.maxThreads} value={engineSettings.threads} onChange={handleThreadsChange} />
           </div>
-        )}
-        {engineMode !== 'backend' && (
+        ) : (
           <div className="control-group">
             <label htmlFor="threads-single">Threads: 1 (single-thread WASM)</label>
             <input type="range" id="threads-single" min="1" max="1" value="1" disabled style={{ opacity: 0.4 }} />
           </div>
         )}
+
         <div className="control-group">
           <label htmlFor="hash">Hash Size (MB)</label>
           <select id="hash" value={engineSettings.hashSize} onChange={handleHashChange}>
-            {[16, 32, 64, 128, 256, 512, 1024]
-              .filter(size => size <= engineSettings.maxHashSize)
-              .map(size => (
-                <option key={size} value={size}>{size}</option>
-              ))}
+            {(() => {
+              // Clamp hash options to 128MB max in browser WASM mode to avoid crashes on low-end devices
+              const maxHash = engineMode === 'backend'
+                ? Math.min(engineSettings.maxHashSize, 1024)
+                : Math.min(engineSettings.maxHashSize, 128);
+              return [16, 32, 64, 128, 256, 512, 1024]
+                .filter((size) => size <= maxHash)
+                .map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ));
+            })()}
           </select>
         </div>
+
         <div className="control-group">
-          <label htmlFor="preset">Strength Preset</label>
-          <select id="preset" onChange={handlePresetChange} defaultValue="">
+          <label htmlFor="preset-select">Strength Preset</label>
+          <select id="preset-select" onChange={handlePresetChange} defaultValue="">
             <option value="" disabled>Select preset...</option>
-            {ENGINE_PRESETS.map(p => (
+            {ENGINE_PRESETS.map((p) => (
               <option key={p.label} value={p.label}>{p.label}</option>
             ))}
           </select>
         </div>
+
         <div className="control-group">
           <label htmlFor="multiPv">Analysis Lines</label>
           <select id="multiPv" value={multiPv} onChange={(e) => onMultiPvChange(parseInt(e.target.value, 10))}>
-            {[1, 2, 3].map(n => (
+            {[1, 2, 3].map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
           </select>

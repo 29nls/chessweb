@@ -83,3 +83,19 @@
   font-size: 0.9em;
   font-style: italic;
 }
+
+/* Responsive: Mobile */
+@media (max-width: 480px) {
+  .opening-explorer {
+    padding: 12px;
+    font-size: 0.8em;
+  }
+
+  .opening-name {
+    font-size: 0.95em;
+  }
+
+  .opening-next-item {
+    font-size: 0.8em;
+  }
+}

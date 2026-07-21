@@ -15,7 +15,7 @@ body {
   --bg-secondary: #FFFFFF; /* White */
   --bg-tertiary: #E9EBEE; /* Lighter Gray for elements */
   --text-primary: #1D2129; /* Almost Black */
-  --text-secondary: #65676B; /* Medium Gray */
+  --text-secondary: #5C5E62; /* Medium Gray — darkened from #65676B for WCAG AA 4.5:1 on --bg-primary */
   --accent-primary: #3498DB; /* Bright Blue */
   --accent-primary-hover: #2980B9; /* Darker Blue */
   --border-color: #DCDFE3;

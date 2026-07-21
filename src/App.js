@@ -11,6 +11,8 @@ import AppLayout from './components/AppLayout';
 import LandingScreen from './LandingScreen';
 import AnalysisPage from './pages/AnalysisPage';
 import OnlinePage from './pages/OnlinePage';
+import PuzzlePage from './pages/PuzzlePage';
+import HistoryPage from './pages/HistoryPage';
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
           <Route path="/" element={<LandingScreen />} />
           <Route path="/analysis" element={<AnalysisPage />} />
           <Route path="/online" element={<OnlinePage />} />
+          <Route path="/puzzles" element={<PuzzlePage />} />
+          <Route path="/history" element={<HistoryPage />} />
         </Routes>
       </AppLayout>
       <ToastContainer 

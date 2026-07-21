@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Cpu, Globe, Eye } from 'react-feather';
+import { Cpu, Globe, Eye, Zap, Clock } from 'react-feather';
 import './LandingScreen.css';
 
 const LandingCard = ({ title, description, icon, variantClass = '', onClick }) => (
@@ -45,6 +45,22 @@ const LandingScreen = () => {
           icon={<Eye size={40} />}
           variantClass="spectator"
           onClick={() => navigate('/online?tab=spectate')}
+        />
+
+        <LandingCard
+          title="Tactics Trainer"
+          description="Sharpen your tactical skills with curated puzzles. Practice forks, pins, sacrifices, and more with instant feedback."
+          icon={<Zap size={40} />}
+          variantClass="puzzle"
+          onClick={() => navigate('/puzzles')}
+        />
+
+        <LandingCard
+          title="Game History"
+          description="Review your completed online and analysis games. Replay them anytime with Stockfish evaluation."
+          icon={<Clock size={40} />}
+          variantClass="history"
+          onClick={() => navigate('/history')}
         />
       </section>
     </main>

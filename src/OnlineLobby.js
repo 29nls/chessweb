@@ -8,6 +8,15 @@ import './OnlineLobby.css';
 /**
  * OnlineLobby – Modal UI for creating/joining online games and spectating.
  */
+const TIME_CONTROL_OPTIONS = [
+  { label: 'Untimed', initialMs: 0 },
+  { label: '1 min', initialMs: 60 * 1000 },
+  { label: '3 min', initialMs: 3 * 60 * 1000 },
+  { label: '5 min', initialMs: 5 * 60 * 1000 },
+  { label: '10 min', initialMs: 10 * 60 * 1000 },
+  { label: '30 min', initialMs: 30 * 60 * 1000 },
+];
+
 const OnlineLobby = ({
   isOpen,
   initialTab,
@@ -23,7 +32,9 @@ const OnlineLobby = ({
   onJoinSpectator,
   onResign,
   onLeaveGame,
+  onShareReplay,
 }) => {
+  const [selectedTimeMs, setSelectedTimeMs] = useState(5 * 60 * 1000); // Default: 5 min
   const [joinCode, setJoinCode] = useState('');
   const [activeTab, setActiveTab] = useState(initialTab || 'play');
   
@@ -85,6 +96,15 @@ const OnlineLobby = ({
                 New Game
               </button>
             )}
+            {onShareReplay && (
+              <button
+                className="game-result-btn-share"
+                onClick={onShareReplay}
+                style={{ background: 'transparent', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)' }}
+              >
+                Share Replay
+              </button>
+            )}
             <button className="game-result-btn-close" onClick={onLeaveGame}>
               Close
             </button>
@@ -114,14 +134,22 @@ const OnlineLobby = ({
             </button>
           </div>
 
-          <div className="lobby-tabs">
-            <button 
+          <div className="lobby-tabs" role="tablist" aria-label="Lobby tabs">
+            <button
+              role="tab"
+              id="lobby-tab-play"
+              aria-selected={activeTab === 'play'}
+              aria-controls="lobby-panel-play"
               className={`lobby-tab ${activeTab === 'play' ? 'active' : ''}`}
               onClick={() => setActiveTab('play')}
             >
               Play
             </button>
-            <button 
+            <button
+              role="tab"
+              id="lobby-tab-spectate"
+              aria-selected={activeTab === 'spectate'}
+              aria-controls="lobby-panel-spectate"
               className={`lobby-tab ${activeTab === 'spectate' ? 'active' : ''}`}
               onClick={() => setActiveTab('spectate')}
             >
@@ -132,9 +160,27 @@ const OnlineLobby = ({
           {error && <div className="lobby-error">{error}</div>}
 
           {activeTab === 'play' && (
-            gameStatus === 'idle' ? (
+            <div role="tabpanel" id="lobby-panel-play" aria-labelledby="lobby-tab-play">
+            {gameStatus === 'idle' ? (
               <div className="lobby-actions">
-                <button className="lobby-btn-create" onClick={onCreateGame}>
+                <div className="lobby-time-control">
+                  <label className="lobby-time-label">Time Control</label>
+                  <div className="lobby-time-options">
+                    {TIME_CONTROL_OPTIONS.map(opt => (
+                      <button
+                        key={opt.label}
+                        className={`lobby-time-btn ${selectedTimeMs === opt.initialMs ? 'active' : ''}`}
+                        onClick={() => setSelectedTimeMs(opt.initialMs)}
+                        aria-pressed={selectedTimeMs === opt.initialMs}
+                        aria-label={`${opt.label} time control`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button className="lobby-btn-create" onClick={() => onCreateGame(selectedTimeMs)}>
                   <Wifi size={20} />
                   Create Game
                 </button>
@@ -187,10 +233,12 @@ const OnlineLobby = ({
                   Cancel
                 </button>
               </div>
-            )
+            )}
+            </div>
           )}
 
           {activeTab === 'spectate' && (
+            <div role="tabpanel" id="lobby-panel-spectate" aria-labelledby="lobby-tab-spectate">
             <div className="spectate-list-container">
               <p className="spectate-subtitle">Live Games</p>
               {activeGames.length === 0 ? (
@@ -199,9 +247,17 @@ const OnlineLobby = ({
                   <p>No active games right now.</p>
                 </div>
               ) : (
-                <ul className="spectate-list">
+                <div className="spectate-list" role="group" aria-label="Active games">
                   {activeGames.map(game => (
-                    <li key={game.code} className="spectate-item" onClick={() => onJoinSpectator(game.code)}>
+                    <div
+                      key={game.code}
+                      className="spectate-item"
+                      onClick={() => onJoinSpectator(game.code)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onJoinSpectator(game.code); } }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Spectate game ${game.code}, ${game.status === 'playing' ? 'in progress' : 'waiting'}, ${game.players} of 2 players`}
+                    >
                       <div className="spectate-info">
                         <span className="spectate-code">#{game.code}</span>
                         <span className={`spectate-status ${game.status}`}>
@@ -209,13 +265,14 @@ const OnlineLobby = ({
                         </span>
                       </div>
                       <div className="spectate-players">
-                        <Users size={14} style={{ marginRight: 4 }} />
+                        <Users size={14} style={{ marginRight: 4 }} aria-hidden="true" />
                         {game.players} / 2
                       </div>
-                    </li>
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
+            </div>
             </div>
           )}
 
@@ -272,9 +329,9 @@ const ChatPanel = ({
         {messages.length === 0 && (
           <div className="chat-empty">No messages yet. Send a reaction or chat!</div>
         )}
-        {messages.map((msg, i) => (
+        {messages.map((msg) => (
           <div
-            key={i}
+            key={msg.id}
             className={`chat-msg ${msg.isOwn ? 'chat-msg-own' : ''} ${msg.type === 'reaction' ? 'chat-reaction' : ''}`}
           >
             {msg.type === 'reaction' ? (
@@ -303,6 +360,7 @@ const ChatPanel = ({
               className="reaction-btn"
               onClick={() => onSendReaction(emoji)}
               title={`Send ${emoji}`}
+              aria-label={`Send ${emoji}`}
             >
               {emoji}
             </button>
@@ -333,6 +391,15 @@ const ChatPanel = ({
   );
 };
 
+/** Format milliseconds to MM:SS */
+function formatClock(ms) {
+  if (ms <= 0) return '0:00';
+  const totalSec = Math.ceil(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
 export const OnlineStatusBar = ({
   playerColor,
   isMyTurn,
@@ -359,14 +426,49 @@ export const OnlineStatusBar = ({
   messages = [],
   onSendMessage,
   onSendReaction,
+  // Clock props
+  whiteTime = 0,
+  blackTime = 0,
+  timeControlMs = 0,
 }) => {
   if (gameStatus !== 'playing') return null;
 
   const isSpectator = playerColor === 'spectator';
+  const myTurnChar = playerColor === 'white' ? 'w' : 'b';
+  const oppTurnChar = playerColor === 'white' ? 'b' : 'w';
+  const isWhiteActive = isMyTurn && playerColor === 'white' || !isMyTurn && playerColor === 'black';
+
+  const whiteClockClass = [
+    'clock-display',
+    'clock-white',
+    isWhiteActive && whiteTime > 0 ? 'clock-active' : '',
+    whiteTime <= 0 && timeControlMs > 0 ? 'clock-expired' : '',
+  ].filter(Boolean).join(' ');
+
+  const blackClockClass = [
+    'clock-display',
+    'clock-black',
+    !isWhiteActive && blackTime > 0 ? 'clock-active' : '',
+    blackTime <= 0 && timeControlMs > 0 ? 'clock-expired' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <>
       <div className="online-status-bar">
+        {/* ⏱ Clock Display */}
+        {timeControlMs > 0 && (
+          <div className="clock-container" role="timer" aria-label={`White: ${formatClock(whiteTime)}, Black: ${formatClock(blackTime)}`}>
+            <div className={whiteClockClass}>
+              <span className="clock-label">White</span>
+              <span className="clock-time" aria-live="polite" aria-atomic="true">{formatClock(whiteTime)}</span>
+            </div>
+            <div className={blackClockClass}>
+              <span className="clock-label">Black</span>
+              <span className="clock-time" aria-live="polite" aria-atomic="true">{formatClock(blackTime)}</span>
+            </div>
+          </div>
+        )}
+
         {isSpectator ? (
           <div className="online-status-info">
             <span className="online-status-dot connected" />

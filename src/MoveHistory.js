@@ -55,20 +55,20 @@ const MoveHistory = ({ moves, classifications }) => {
         <List size={18} />
         Move History
       </h3>
-        <div className="move-history-scroll" data-testid="move-list">
-        <div className="move-row" style={{ fontWeight: 600, fontSize: '0.75em', color: 'var(--text-secondary)' }}>
-          <div className="move-number">#</div>
-          <div>White</div>
-          <div>Black</div>
+        <div className="move-history-scroll" data-testid="move-list" role="grid" aria-label="Move history">
+        <div className="move-row" role="row" style={{ fontWeight: 600, fontSize: '0.75em', color: 'var(--text-secondary)' }}>
+          <div className="move-number" role="columnheader">#</div>
+          <div role="columnheader">White</div>
+          <div role="columnheader">Black</div>
         </div>
         {moveRows.map((row) => (
-          <div className="move-row" key={row.number}>
-            <div className="move-number">{row.number}.</div>
-            <div className="move-cell">
+          <div className="move-row" key={row.number} role="row">
+            <div className="move-number" role="cell">{row.number}.</div>
+            <div className="move-cell" role="cell">
               <span className="move-san" data-testid="move-san">{row.white.san}</span>
               {renderBadge(row.white.classification)}
             </div>
-            <div className="move-cell">
+            <div className="move-cell" role="cell">
               {row.black ? (
                 <>
                   <span className="move-san" data-testid="move-san">{row.black.san}</span>
