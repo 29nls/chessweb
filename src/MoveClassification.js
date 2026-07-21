@@ -16,7 +16,7 @@ export const LABELS = {
   EXCELLENT: { label: 'Excellent', icon: '✓',  color: '#81C784' },
   GOOD:      { label: 'Good',      icon: '',    color: '#9E9E9E' },
   INACCURACY:{ label: 'Inaccuracy',icon: '?!',  color: '#FFA726' },
-  MISS:      { label: 'Miss',      icon: '?!',  color: '#FF7043' },
+  MISS:      { label: 'Miss',      icon: '?!?', color: '#FF7043' },
   MISTAKE:   { label: 'Mistake',   icon: '?',   color: '#EF5350' },
   BLUNDER:   { label: 'Blunder',   icon: '??',  color: '#E53935' },
 };
@@ -30,7 +30,7 @@ export const CLASS_TO_NAG = {
   EXCELLENT: '$1',
   GOOD: '',
   INACCURACY: '$6',
-  MISS: '$6',
+  MISS: '$2',
   MISTAKE: '$2',
   BLUNDER: '$4',
 };

@@ -56,7 +56,7 @@ const Toggle = ({ label, checked, onChange }) => (
 
 const Controls = ({
   onReset, onFlip, onUndo, onRedo, canUndo, canRedo,
-  engineSettings, setEngineSettings, sendCommand,
+  engineSettings, setEngineSettings,
   onFenClick, onPgnClick,
   isAutoMoveEnabled, setIsAutoMoveEnabled,
   userColor, setUserColor,
@@ -105,13 +105,11 @@ const Controls = ({
   const handleThreadsChange = (e) => {
     const value = parseInt(e.target.value, 10);
     setEngineSettings.setThreads(value);
-    sendCommand(`setoption name Threads value ${value}`);
   };
 
   const handleHashChange = (e) => {
     const value = parseInt(e.target.value, 10);
     setEngineSettings.setHashSize(value);
-    sendCommand(`setoption name Hash value ${value}`);
   };
 
   const handlePresetChange = (e) => {
@@ -121,7 +119,6 @@ const Controls = ({
     if (!preset) return;
     setEngineSettings.setMovetime(preset.movetime);
     setEngineSettings.setDepth(preset.depth);
-    sendCommand(`go movetime ${preset.movetime}`);
     toast(`Preset: ${preset.label} (${preset.movetime}ms, depth ${preset.depth})`);
   };
 

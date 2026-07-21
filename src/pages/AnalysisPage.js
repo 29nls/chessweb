@@ -262,7 +262,6 @@ export default function AnalysisPage() {
 
   const handleMultiPvChange = (value) => {
     setMultiPv(value);
-    engine.sendCommand(`setoption name MultiPV value ${value}`);
   };
 
   const flipBoard = () => setBoardOrientation((p) => (p === 'white' ? 'black' : 'white'));
@@ -419,7 +418,6 @@ export default function AnalysisPage() {
             canRedo={history.historyPointer < history.moveHistory.length - 1}
             engineSettings={{ movetime, threads, hashSize, maxThreads, maxHashSize, depth, isDepthAnalysisEnabled }}
             setEngineSettings={{ setMovetime, setThreads, setHashSize, setDepth, setIsDepthAnalysisEnabled }}
-            sendCommand={engine.sendCommand}
             onFenClick={handleFenClick}
             onPgnClick={handlePgnClick}
             isAutoMoveEnabled={isAutoMoveEnabled}

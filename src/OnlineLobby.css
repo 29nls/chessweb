@@ -5,7 +5,8 @@
   padding: 0;
   background: transparent;
   max-width: 100%;
-  overflow: visible;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
 
 .accessible-dialog::backdrop {

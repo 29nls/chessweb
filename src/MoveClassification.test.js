@@ -16,6 +16,10 @@ describe('calculateLoss', () => {
 });
 
 describe('classifyMove', () => {
+  test('uses distinct badges for a miss and an inaccuracy', () => {
+    expect(LABELS.MISS.icon).not.toBe(LABELS.INACCURACY.icon);
+  });
+
   test('engine moves are always at least BEST', () => {
     expect(classifyMove(500, 0, 0, true)).toBe(LABELS.BEST);
   });

@@ -55,6 +55,12 @@ const OnlineLobby = ({
     }
   };
 
+  const handleCreateGame = async () => {
+    const created = await onCreateGame(selectedTimeMs);
+    if (created) return;
+    toast.error('Could not reserve a game slot. Please try again.');
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleJoin();
   };
@@ -180,7 +186,7 @@ const OnlineLobby = ({
                   </div>
                 </div>
 
-                <button className="lobby-btn-create" onClick={() => onCreateGame(selectedTimeMs)}>
+                <button className="lobby-btn-create" onClick={handleCreateGame}>
                   <Wifi size={20} />
                   Create Game
                 </button>
@@ -431,12 +437,11 @@ export const OnlineStatusBar = ({
   blackTime = 0,
   timeControlMs = 0,
 }) => {
+  const [pendingAction, setPendingAction] = useState(null);
   if (gameStatus !== 'playing') return null;
 
   const isSpectator = playerColor === 'spectator';
-  const myTurnChar = playerColor === 'white' ? 'w' : 'b';
-  const oppTurnChar = playerColor === 'white' ? 'b' : 'w';
-  const isWhiteActive = isMyTurn && playerColor === 'white' || !isMyTurn && playerColor === 'black';
+  const isWhiteActive = (isMyTurn && playerColor === 'white') || (!isMyTurn && playerColor === 'black');
 
   const whiteClockClass = [
     'clock-display',
@@ -471,7 +476,7 @@ export const OnlineStatusBar = ({
 
         {isSpectator ? (
           <div className="online-status-info">
-            <span className="online-status-dot connected" />
+              <span className="online-status-dot connected" aria-hidden="true" />
             <span>👁️ Spectating</span>
           </div>
         ) : (
@@ -517,15 +522,46 @@ export const OnlineStatusBar = ({
             </button>
           )}
           {!isSpectator && (
-            <button className="online-btn-resign" onClick={onResign}>
+            <button className="online-btn-resign" onClick={() => setPendingAction('resign')}>
               Resign
             </button>
           )}
-          <button className="online-btn-leave" onClick={onLeaveGame}>
+          <button className="online-btn-leave" onClick={() => setPendingAction('leave')}>
             Leave
           </button>
         </div>
       </div>
+
+      <AccessibleDialog
+        isOpen={pendingAction !== null}
+        onClose={() => setPendingAction(null)}
+        labelledBy="confirm-game-action-title"
+        describedBy="confirm-game-action-description"
+        className="game-action-dialog"
+      >
+        <div className="game-action-card">
+          <h2 id="confirm-game-action-title">{pendingAction === 'resign' ? 'Resign game?' : 'Leave game?'}</h2>
+          <p id="confirm-game-action-description">
+            {pendingAction === 'resign'
+              ? 'This immediately awards the game to your opponent.'
+              : 'Leaving disconnects you from this game.'}
+          </p>
+          <div className="game-action-buttons">
+            <button className="game-action-btn decline" onClick={() => setPendingAction(null)}>Cancel</button>
+            <button
+              className="game-action-btn accept"
+              aria-label={pendingAction === 'resign' ? 'Confirm resign' : 'Confirm leave'}
+              onClick={() => {
+                const action = pendingAction;
+                setPendingAction(null);
+                if (action === 'resign') onResign(); else onLeaveGame();
+              }}
+            >
+              {pendingAction === 'resign' ? 'Resign' : 'Leave'}
+            </button>
+          </div>
+        </div>
+      </AccessibleDialog>
 
       {/* Chat Panel */}
       {messages !== undefined && (

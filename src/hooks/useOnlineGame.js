@@ -382,8 +382,26 @@ export function useOnlineGame() {
   }, []);
 
   // Create a new game (I am white)
-  const createGame = useCallback((timeMs) => {
+  const createGame = useCallback(async (timeMs) => {
     const code = generateCode();
+    if (supabase) {
+      try {
+        const { data, error: claimError } = await supabase.rpc('claim_chess_game_slot', {
+          p_game_code: code,
+          p_player_id: playerIdRef.current,
+          p_color: 'white',
+          p_time_control_ms: timeMs || 0,
+        });
+        const claim = Array.isArray(data) ? data[0] : data;
+        if (claimError || !claim?.claimed) {
+          setError(claimError?.message || 'Could not create a game. Please try again.');
+          return false;
+        }
+      } catch (claimError) {
+        setError('Could not create a game. Please try again.');
+        return false;
+      }
+    }
     if (timeMs != null) {
       setTimeControl(timeMs);
     }
@@ -442,11 +460,34 @@ export function useOnlineGame() {
       return false;
     }
     
-    // Cek apakah slot black sudah terisi sebelum join
-    const slotAvailable = await checkSlotAvailability(normalized, 'black');
-    if (!slotAvailable) {
-      setError('This game already has two players. Try spectating instead.');
-      return false;
+    if (supabase) {
+      try {
+        const { data, error: claimError } = await supabase.rpc('claim_chess_game_slot', {
+          p_game_code: normalized,
+          p_player_id: playerIdRef.current,
+          p_color: 'black',
+          p_time_control_ms: 0,
+        });
+        const claim = Array.isArray(data) ? data[0] : data;
+        if (claimError || !claim?.claimed) {
+          setError('This game already has two players. Try spectating instead.');
+          return false;
+        }
+        timeControlMsRef.current = claim.time_control_ms || 0;
+        setTimeControlMs(claim.time_control_ms || 0);
+        setWhiteTime(claim.time_control_ms || 0);
+        setBlackTime(claim.time_control_ms || 0);
+      } catch {
+        setError('Could not join the game. Please try again.');
+        return false;
+      }
+    } else {
+      // Local-only fallback where cross-device atomicity cannot be guaranteed.
+      const slotAvailable = await checkSlotAvailability(normalized, 'black');
+      if (!slotAvailable) {
+        setError('This game already has two players. Try spectating instead.');
+        return false;
+      }
     }
     
     setGameCode(normalized);
@@ -694,6 +735,12 @@ export function useOnlineGame() {
 
   // Leave the game and return to idle
   const leaveGame = useCallback(() => {
+    if (supabase && gameCode && playerColor !== 'spectator') {
+      supabase.rpc('release_chess_game_slot', {
+        p_game_code: gameCode,
+        p_player_id: playerIdRef.current,
+      }).catch(() => {});
+    }
     cleanup();
     clearGameState();
     setGameStatus('idle');

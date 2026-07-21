@@ -3,6 +3,10 @@ import { Chess } from 'chess.js';
 import { createEngine } from '../engine';
 import { calculateLoss, classifyMove } from '../MoveClassification';
 
+export function normalizeEvaluationToWhite(score, turn) {
+  return turn === 'b' ? { ...score, value: -score.value } : score;
+}
+
 /**
  * useChessEngine
  * Manages Stockfish initialization, evaluation, and move classification.
@@ -38,6 +42,16 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
   const hashSizeRef = useRef(hashSize);
   const multiPvRefForConnect = useRef(multiPv);
 
+  const sendCommand = useCallback((command) => {
+    if (engine.current) {
+      engine.current.sendCommand(command);
+    }
+    // Reset pending classification when starting a new game or stopping
+    if (command === 'ucinewgame' || command === 'stop') {
+      pendingClassifyRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     threadsRef.current = threads;
     hashSizeRef.current = hashSize;
@@ -53,24 +67,15 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     }
   }, [threads, hashSize, multiPv, sendCommand]);
 
-  const sendCommand = useCallback((command) => {
-    if (engine.current) {
-      engine.current.sendCommand(command);
-    }
-    // Reset pending classification when starting a new game or stopping
-    if (command === 'ucinewgame' || command === 'stop') {
-      pendingClassifyRef.current = false;
-    }
-  }, []);
-
   useEffect(() => {
     engine.current = createEngine(engineMode, backendUrl);
 
     const cleanupOutput = engine.current.onOutput((data) => {
       if (data.type === 'info' && data.score) {
         const idx = (data.multipv || 1) - 1;
+        const normalizedScore = normalizeEvaluationToWhite(data.score, fenRef.current.split(' ')[1]);
         const lineEval = {
-          score: data.score.value,
+          score: normalizedScore.value,
           type: data.score.type,
           depth: data.depth,
           pv: data.pv || [],
@@ -80,11 +85,6 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
         };
 
         if (idx === 0) {
-          // Normalisasi skor ke perspektif Putih: Stockfish report relative-to-side-to-move
-          const turn = fenRef.current.split(' ')[1];
-          if (turn === 'b') {
-            lineEval.score = -lineEval.score;
-          }
           setStockfishEval(lineEval);
         }
 

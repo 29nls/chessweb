@@ -5,7 +5,8 @@
   padding: 0;
   width: 90%;
   max-width: 500px;
-  overflow: visible;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
 }
 
 .modal-dialog::backdrop {
@@ -20,6 +21,7 @@
   width: 90%;
   max-width: 500px;
   color: var(--text-primary);
+  box-sizing: border-box;
 }
 
 .modal-header {
@@ -53,6 +55,8 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: calc(100dvh - 180px);
+  overflow-y: auto;
 }
 
 .modal-body input[type="text"],

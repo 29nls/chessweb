@@ -56,6 +56,7 @@ export default function PuzzlePage() {
     setPuzzleSolved(false);
     setPuzzleStarted(false);
     setShowHint(false);
+    setHintsUsed(0);
     setLastMove(null);
     setWrongMove(null);
 
