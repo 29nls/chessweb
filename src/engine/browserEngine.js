@@ -89,6 +89,9 @@ function stop() {
     restartTimer = null;
   }
   ready = false;
+  // Bersihkan semua listeners untuk mencegah stale callback saat re-mount
+  readyListeners.clear();
+  outputListeners.clear();
   if (worker) {
     worker.terminate();
     worker = null;

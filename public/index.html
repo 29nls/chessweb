@@ -4,11 +4,21 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#3498DB" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#18191A" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
       content="ChessWeb — Play, analyze, and spectate chess games with Stockfish 18"
     />
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ChessWeb — Play &amp; Analyze Chess" />
+    <meta property="og:description" content="Play online, analyze with Stockfish 18, and spectate matches. Share a 6-character code to challenge friends." />
+    <meta property="og:url" content="https://chessweb.vercel.app" />
+    <meta property="og:image" content="%PUBLIC_URL%/logo512.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ChessWeb — Play &amp; Analyze Chess" />
+    <meta name="twitter:description" content="Play online, analyze with Stockfish 18, and spectate matches in real-time." />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
       manifest.json provides metadata used when your web app is installed on a
@@ -24,7 +34,6 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <title>ChessWeb</title>
   </head>
   <body>

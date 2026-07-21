@@ -1,3 +1,8 @@
+@keyframes lobby-slide-up {
+  from { opacity: 0; transform: translateY(30px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 @keyframes fade-in-up {
   from {
     opacity: 0;
@@ -64,11 +69,11 @@
   opacity: 0; /* Start hidden for animation */
 }
 
-/* Chessboard Colors */
-:root {
-  --board-light: #B0C4DE; /* Light Steel Blue */
-  --board-dark: #708090;  /* Slate Gray */
-}
+/* Chessboard Colors — didefinisikan hanya di index.css untuk konsistensi dark mode */
+/* :root { */
+/*   --board-light: #B0C4DE; */
+/*   --board-dark: #708090; */
+/* } */
 
 .evaluation-section {
   grid-area: evaluation;
@@ -151,6 +156,7 @@
   font-size: 0.9em;
   font-weight: 500;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .icon-button:hover {
@@ -159,9 +165,29 @@
   background-color: var(--bg-secondary);
 }
 
+.icon-button:hover .shortcut-hint {
+  display: inline-block;
+}
+
 .icon-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.shortcut-hint {
+  display: none;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 0.6em;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  line-height: 1.4;
+  pointer-events: none;
 }
 
 .toggle-switch {
@@ -313,15 +339,209 @@ input[type="range"]::-moz-range-thumb {
   background-color: var(--bg-secondary);
 }
 
+/* Promotion Dialog */
+.promotion-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+  animation: fade-in-up 0.2s ease-out;
+}
+
+.promotion-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  animation: lobby-slide-up 0.3s ease-out;
+}
+
+.promotion-title {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.promotion-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.promotion-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  font-size: 2em;
+  color: var(--text-primary);
+}
+
+.promotion-btn:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-secondary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.promotion-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(93, 173, 226, 0.3);
+}
+
+.promotion-label {
+  font-size: 0.45em;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Game Over Banner in Analysis Mode */
+.game-over-banner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-secondary);
+  border: 2px solid var(--accent-primary);
+  border-radius: 16px;
+  padding: 28px 36px;
+  text-align: center;
+  z-index: 999;
+  box-shadow: 0 8px 40px var(--shadow-color);
+  animation: lobby-slide-up 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.game-over-text {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.game-over-banner::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: -1;
+}
+
+.game-over-banner .button-primary,
+.game-over-banner .button-secondary {
+  min-width: 120px;
+}
+
 /* Responsive adjustments */
 @media (max-width: 1100px) {
   .App-body {
     grid-template-columns: 1fr;
     grid-template-areas:
       "chessboard"
-      "controls"
       "evaluation"
+      "controls"
       "movehistory";
     max-width: 600px;
+  }
+}
+
+@media (max-width: 480px) {
+  .App {
+    padding: 12px;
+  }
+
+  .App-body {
+    gap: 12px;
+  }
+
+  .controls {
+    gap: 12px;
+  }
+
+  .control-section {
+    padding: 10px;
+  }
+
+  .button-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .icon-button {
+    padding: 8px;
+    font-size: 0.8em;
+  }
+
+  .section-title {
+    font-size: 0.95em;
+  }
+
+  .promotion-choices {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .promotion-btn {
+    padding: 12px 8px;
+    font-size: 1.5em;
+  }
+
+  .online-status-bar {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .online-status-info {
+    font-size: 0.8em;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .online-status-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .online-btn-takeback,
+  .online-btn-draw,
+  .online-btn-resign,
+  .online-btn-leave {
+    font-size: 0.7em;
+    padding: 6px 10px;
+  }
+
+  .move-history-panel {
+    max-height: 250px;
+  }
+
+  .move-row {
+    font-size: 0.75em;
   }
 }

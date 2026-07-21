@@ -11,8 +11,25 @@ const FILES = {
   notify: '/sound/notify.ogg',
 };
 
+// Reset failed cache after user interaction to allow retry
+let interactionListenerSet = false;
+function ensureInteractionRetry() {
+  if (interactionListenerSet) return;
+  interactionListenerSet = true;
+  const handler = () => {
+    failedCache.clear();
+    interactionListenerSet = false;
+  };
+  document.addEventListener('click', handler, { once: true });
+  document.addEventListener('keydown', handler, { once: true });
+  document.addEventListener('touchstart', handler, { once: true });
+}
+
 export function playSound(name) {
-  if (failedCache.has(name)) return;
+  if (failedCache.has(name)) {
+    ensureInteractionRetry();
+    return;
+  }
   if (!audioCache[name]) {
     const src = FILES[name];
     if (!src) return;
@@ -22,7 +39,15 @@ export function playSound(name) {
   }
   const audio = audioCache[name];
   audio.currentTime = 0;
-  audio.play().catch(() => failedCache.add(name));
+  const playPromise = audio.play();
+  if (playPromise !== undefined) {
+    playPromise.catch((err) => {
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        failedCache.add(name);
+        ensureInteractionRetry();
+      }
+    });
+  }
 }
 
 export function playMoveSound(move, game) {

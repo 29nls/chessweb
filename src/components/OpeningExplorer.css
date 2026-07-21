@@ -1,0 +1,85 @@
+.opening-explorer {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 15px;
+  box-shadow: 0 2px 8px var(--shadow-color);
+  font-size: 0.9em;
+  transition: border-color 0.2s ease;
+}
+
+.opening-explorer:hover {
+  border-color: var(--accent-primary);
+}
+
+.opening-title {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 10px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.opening-title svg {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.opening-name {
+  font-size: 1.1em;
+  font-weight: 700;
+  color: var(--accent-primary);
+  transition: color 0.2s ease;
+}
+
+.opening-eco {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.opening-next-moves {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+}
+
+.opening-next-header {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.opening-next-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 0.9em;
+  font-family: 'Segoe UI', monospace;
+}
+
+.opening-next-item:hover {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.opening-next-move {
+  color: var(--text-primary);
+}
+
+.opening-next-count {
+  color: var(--text-secondary);
+  font-size: 0.85em;
+}
+
+.opening-empty {
+  color: var(--text-secondary);
+  font-size: 0.9em;
+  font-style: italic;
+}

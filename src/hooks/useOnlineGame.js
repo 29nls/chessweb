@@ -21,6 +21,35 @@ function getPlayerId() {
   return id;
 }
 
+// Simpan state game untuk reconnect setelah refresh
+function saveGameState(code, color, status) {
+  try {
+    localStorage.setItem('chessweb_active_game', JSON.stringify({ code, color, status, timestamp: Date.now() }));
+  } catch { /* ignore */ }
+}
+
+function clearGameState() {
+  try {
+    localStorage.removeItem('chessweb_active_game');
+  } catch { /* ignore */ }
+}
+
+function getSavedGameState() {
+  try {
+    const raw = localStorage.getItem('chessweb_active_game');
+    if (!raw) return null;
+    const state = JSON.parse(raw);
+    // Expire after 30 minutes
+    if (Date.now() - state.timestamp > 30 * 60 * 1000) {
+      clearGameState();
+      return null;
+    }
+    return state;
+  } catch {
+    return null;
+  }
+}
+
 export function useOnlineGame() {
   // 'idle' | 'waiting' | 'playing' | 'finished'
   const [gameStatus, setGameStatus] = useState('idle');
@@ -39,6 +68,16 @@ export function useOnlineGame() {
   const onStateRequestedRef = useRef(null);
   const onSyncStateReceivedRef = useRef(null);
 
+  // Takeback & Draw callback refs
+  const onTakebackRequestedRef = useRef(null);
+  const onTakebackRespondedRef = useRef(null);
+  const onDrawOfferedRef = useRef(null);
+  const onDrawRespondedRef = useRef(null);
+
+  // Chat & Reaction callback refs
+  const onChatMessageRef = useRef(null);
+  const onReactionRef = useRef(null);
+
   // Cleanup channel subscription & callback refs
   const cleanup = useCallback(() => {
     if (channelRef.current) {
@@ -53,6 +92,12 @@ export function useOnlineGame() {
     onGameStartRef.current = null;
     onStateRequestedRef.current = null;
     onSyncStateReceivedRef.current = null;
+    onTakebackRequestedRef.current = null;
+    onTakebackRespondedRef.current = null;
+    onDrawOfferedRef.current = null;
+    onDrawRespondedRef.current = null;
+    onChatMessageRef.current = null;
+    onReactionRef.current = null;
   }, []);
 
   // Update presence in the global lobby (Host only)
@@ -120,6 +165,45 @@ export function useOnlineGame() {
       setGameStatus('finished');
     });
 
+    // ─── Chat & Reaction Events ───
+    channel.on('broadcast', { event: 'chat_message' }, ({ payload }) => {
+      if (payload.playerId !== playerIdRef.current && onChatMessageRef.current) {
+        onChatMessageRef.current(payload.text, payload.color, payload.playerId);
+      }
+    });
+
+    channel.on('broadcast', { event: 'reaction' }, ({ payload }) => {
+      if (payload.playerId !== playerIdRef.current && onReactionRef.current) {
+        onReactionRef.current(payload.emoji, payload.color, payload.playerId);
+      }
+    });
+
+    // ─── Takeback Events ───
+    channel.on('broadcast', { event: 'takeback_request' }, ({ payload }) => {
+      if (payload.playerId !== playerIdRef.current && onTakebackRequestedRef.current) {
+        onTakebackRequestedRef.current(payload.playerId);
+      }
+    });
+
+    channel.on('broadcast', { event: 'takeback_response' }, ({ payload }) => {
+      if (payload.playerId !== playerIdRef.current && onTakebackRespondedRef.current) {
+        onTakebackRespondedRef.current(payload.accepted, payload.playerId);
+      }
+    });
+
+    // ─── Draw Events ───
+    channel.on('broadcast', { event: 'draw_offer' }, ({ payload }) => {
+      if (payload.playerId !== playerIdRef.current && onDrawOfferedRef.current) {
+        onDrawOfferedRef.current(payload.playerId);
+      }
+    });
+
+    channel.on('broadcast', { event: 'draw_response' }, ({ payload }) => {
+      if (payload.playerId !== playerIdRef.current && onDrawRespondedRef.current) {
+        onDrawRespondedRef.current(payload.accepted, payload.playerId);
+      }
+    });
+
     // P2P State Synchronization for Spectators
     channel.on('broadcast', { event: 'request_state' }, ({ payload }) => {
       // If I am a player (not a spectator) and I get a state request, I'll provide it.
@@ -170,6 +254,7 @@ export function useOnlineGame() {
       if (isOpponentHere && pCount >= 2) {
         setGameStatus(prev => {
           if (prev === 'waiting') {
+            saveGameState(code, color, 'playing');
             if (onGameStartRef.current) onGameStartRef.current();
             return 'playing';
           }
@@ -201,6 +286,18 @@ export function useOnlineGame() {
     channelRef.current = channel;
   }, [cleanup, updateLobbyPresence]);
 
+  // Coba restore state game yang tersimpan (reconnect setelah refresh)
+  useEffect(() => {
+    const saved = getSavedGameState();
+    if (saved && (saved.status === 'waiting' || saved.status === 'playing')) {
+      setGameCode(saved.code);
+      setPlayerColor(saved.color);
+      setGameStatus(saved.status === 'playing' ? 'playing' : 'waiting');
+      subscribeToChannel(saved.code, saved.color);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Create a new game (I am white)
   const createGame = useCallback(() => {
     const code = generateCode();
@@ -209,25 +306,72 @@ export function useOnlineGame() {
     setGameStatus('waiting');
     setGameResult(null);
     setError(null);
+    saveGameState(code, 'white', 'waiting');
     subscribeToChannel(code, 'white');
     return code;
   }, [subscribeToChannel]);
 
+  // Cek apakah slot warna sudah terisi di channel tertentu
+  const checkSlotAvailability = useCallback(async (code, desiredColor) => {
+    if (!supabase) return true; // skip jika Supabase tidak terkonfigurasi
+    try {
+      const tempChannel = supabase.channel(`game:${code}`, {
+        config: { presence: { key: 'checker_' + getPlayerId() } },
+      });
+      
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => { tempChannel.unsubscribe(); resolve(true); }, 5000);
+        
+        tempChannel.on('presence', { event: 'sync' }, () => {
+          clearTimeout(timeout);
+          const state = tempChannel.presenceState();
+          tempChannel.unsubscribe();
+          
+          let blackTaken = false;
+          Object.values(state).forEach(presences => {
+            presences.forEach(p => {
+              if (p.color === 'black' && p.role === 'player') blackTaken = true;
+            });
+          });
+          
+          if (desiredColor === 'black') {
+            resolve(!blackTaken);
+          } else {
+            resolve(true);
+          }
+        });
+        
+        tempChannel.subscribe();
+      });
+    } catch {
+      return true;
+    }
+  }, []);
+
   // Join an existing game (I am black)
-  const joinGame = useCallback((code) => {
+  const joinGame = useCallback(async (code) => {
     const normalized = code.trim().toUpperCase();
     if (normalized.length !== 6) {
       setError('Code must be 6 characters');
       return false;
     }
+    
+    // Cek apakah slot black sudah terisi sebelum join
+    const slotAvailable = await checkSlotAvailability(normalized, 'black');
+    if (!slotAvailable) {
+      setError('This game already has two players. Try spectating instead.');
+      return false;
+    }
+    
     setGameCode(normalized);
     setPlayerColor('black');
-    setGameStatus('waiting'); // Will transition to 'playing' via presence sync
+    setGameStatus('waiting');
     setGameResult(null);
     setError(null);
+    saveGameState(normalized, 'black', 'waiting');
     subscribeToChannel(normalized, 'black');
     return true;
-  }, [subscribeToChannel]);
+  }, [subscribeToChannel, checkSlotAvailability]);
 
   // Join as a Spectator
   const joinAsSpectator = useCallback((code) => {
@@ -238,9 +382,10 @@ export function useOnlineGame() {
     }
     setGameCode(normalized);
     setPlayerColor('spectator');
-    setGameStatus('playing'); // We assume it's playing if we spectate it
+    setGameStatus('playing');
     setGameResult(null);
     setError(null);
+    saveGameState(normalized, 'spectator', 'playing');
     subscribeToChannel(normalized, 'spectator');
     return true;
   }, [subscribeToChannel]);
@@ -282,8 +427,9 @@ export function useOnlineGame() {
       const winnerColor = playerColor === 'white' ? 'black' : 'white';
       setGameResult({ winner: winnerColor, reason: 'You resigned' });
       setGameStatus('finished');
+      if (gameCode) saveGameState(gameCode, playerColor, 'finished');
     }
-  }, [playerColor]);
+  }, [playerColor, gameCode]);
 
   // Broadcast game over (checkmate, stalemate, etc.)
   const broadcastGameOver = useCallback((winner, reason) => {
@@ -296,11 +442,73 @@ export function useOnlineGame() {
     }
     setGameResult({ winner, reason });
     setGameStatus('finished');
-  }, []);
+    // Bugfix: update localStorage agar tidak direstore oleh reconnect logic
+    if (gameCode) saveGameState(gameCode, playerColor, 'finished');
+  }, [gameCode, playerColor]);
+
+  // ─── Takeback Actions ───
+  const sendTakebackRequest = useCallback(() => {
+    if (channelRef.current && playerColor !== 'spectator') {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'takeback_request',
+        payload: { playerId: playerIdRef.current, color: playerColor },
+      });
+    }
+  }, [playerColor]);
+
+  const sendTakebackResponse = useCallback((accepted) => {
+    if (channelRef.current && playerColor !== 'spectator') {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'takeback_response',
+        payload: { playerId: playerIdRef.current, accepted },
+      });
+      // Bugfix: jika accepted, update lokal state agar tidak desync
+      // onTakebackResponded tidak akan dipanggil untuk diri sendiri (broadcast: {self: false})
+      if (accepted && onTakebackRespondedRef.current) {
+        // Panggil langsung callback untuk update papan lokal
+        onTakebackRespondedRef.current(true, playerIdRef.current);
+      }
+    }
+  }, [playerColor]);
+
+  // ─── Draw Actions ───
+  const offerDraw = useCallback(() => {
+    if (channelRef.current && playerColor !== 'spectator') {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'draw_offer',
+        payload: { playerId: playerIdRef.current, color: playerColor },
+      });
+    }
+  }, [playerColor]);
+
+  const sendDrawResponse = useCallback((accepted) => {
+    if (channelRef.current && playerColor !== 'spectator') {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'draw_response',
+        payload: { playerId: playerIdRef.current, accepted },
+      });
+      if (accepted) {
+        // Broadcast game_over so spectators see the result too
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'game_over',
+          payload: { winner: 'draw', reason: 'Draw by agreement', playerId: playerIdRef.current },
+        });
+        setGameResult({ winner: 'draw', reason: 'Draw by agreement' });
+        setGameStatus('finished');
+        if (gameCode) saveGameState(gameCode, playerColor, 'finished');
+      }
+    }
+  }, [playerColor]);
 
   // Leave the game and return to idle
   const leaveGame = useCallback(() => {
     cleanup();
+    clearGameState();
     setGameStatus('idle');
     setGameCode('');
     setPlayerColor(null);
@@ -327,6 +535,53 @@ export function useOnlineGame() {
     onSyncStateReceivedRef.current = callback;
   }, []);
 
+  // ─── Chat & Reaction Actions ───
+  const sendChatMessage = useCallback((text) => {
+    if (channelRef.current && playerColor !== 'spectator') {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'chat_message',
+        payload: { playerId: playerIdRef.current, text, color: playerColor },
+      });
+    }
+  }, [playerColor]);
+
+  const sendReaction = useCallback((emoji) => {
+    if (channelRef.current && playerColor !== 'spectator') {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'reaction',
+        payload: { playerId: playerIdRef.current, emoji, color: playerColor },
+      });
+    }
+  }, [playerColor]);
+
+  // Register takeback & draw callbacks
+  const onTakebackRequested = useCallback((callback) => {
+    onTakebackRequestedRef.current = callback;
+  }, []);
+
+  const onTakebackResponded = useCallback((callback) => {
+    onTakebackRespondedRef.current = callback;
+  }, []);
+
+  const onDrawOffered = useCallback((callback) => {
+    onDrawOfferedRef.current = callback;
+  }, []);
+
+  const onDrawResponded = useCallback((callback) => {
+    onDrawRespondedRef.current = callback;
+  }, []);
+
+  // Register chat & reaction callbacks
+  const onChatMessage = useCallback((callback) => {
+    onChatMessageRef.current = callback;
+  }, []);
+
+  const onReaction = useCallback((callback) => {
+    onReactionRef.current = callback;
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => cleanup();
@@ -351,11 +606,23 @@ export function useOnlineGame() {
     resign,
     broadcastGameOver,
     leaveGame,
+    sendTakebackRequest,
+    sendTakebackResponse,
+    offerDraw,
+    sendDrawResponse,
+    sendChatMessage,
+    sendReaction,
 
     // Callbacks
     onMoveReceived,
     onGameStart,
     onStateRequested,
     onSyncStateReceived,
+    onTakebackRequested,
+    onTakebackResponded,
+    onDrawOffered,
+    onDrawResponded,
+    onChatMessage,
+    onReaction,
   };
 }

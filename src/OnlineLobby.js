@@ -1,39 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
 import { Wifi, Copy, Globe, Eye, Users } from 'react-feather';
 import { useLobbyGames } from './hooks/useLobbyGames';
+import AccessibleDialog from './AccessibleDialog';
 import './OnlineLobby.css';
-
-/**
- * AccessibleDialog – A thin wrapper around native <dialog> that handles
- * showModal/close lifecycle and Escape-key support.
- */
-const AccessibleDialog = ({ isOpen, onClose, labelledBy, children, className = '' }) => {
-  const dialogRef = useRef(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (isOpen) {
-      if (!dialog.open) dialog.showModal();
-    } else {
-      if (dialog.open) dialog.close();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const handleCancel = (e) => { e.preventDefault(); onClose(); };
-    dialog.addEventListener('cancel', handleCancel);
-    return () => dialog.removeEventListener('cancel', handleCancel);
-  }, [onClose]);
-
-  return (
-    <dialog ref={dialogRef} className={`accessible-dialog ${className}`} aria-labelledby={labelledBy}>
-      {children}
-    </dialog>
-  );
-};
 
 /**
  * OnlineLobby – Modal UI for creating/joining online games and spectating.
@@ -79,7 +49,11 @@ const OnlineLobby = ({
   };
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(gameCode);
+    navigator.clipboard.writeText(gameCode).then(() => {
+      toast.success('Game code copied!');
+    }).catch(() => {
+      toast.error('Failed to copy code. Please copy manually: ' + gameCode);
+    });
   };
 
   // ─── Game Result Modal ───
@@ -256,6 +230,109 @@ const OnlineLobby = ({
 /**
  * OnlineStatusBar – In-game status bar shown during an online match.
  */
+const QUICK_REACTIONS = ['👍', '👏', '😂', '🎉', '🤔', '😢', '🔥', '💪'];
+
+/**
+ * ChatPanel – Chat and quick-reactions UI shown during an online match.
+ */
+const ChatPanel = ({
+  messages,
+  onSendMessage,
+  onSendReaction,
+  playerColor,
+  isSpectator,
+}) => {
+  const [inputText, setInputText] = useState('');
+  const chatEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Auto-scroll to newest message
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = () => {
+    const text = inputText.trim();
+    if (!text) return;
+    onSendMessage(text);
+    setInputText('');
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="chat-panel">
+      <div className="chat-messages" role="log" aria-live="polite" aria-label="Chat messages">
+        {messages.length === 0 && (
+          <div className="chat-empty">No messages yet. Send a reaction or chat!</div>
+        )}
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`chat-msg ${msg.isOwn ? 'chat-msg-own' : ''} ${msg.type === 'reaction' ? 'chat-reaction' : ''}`}
+          >
+            {msg.type === 'reaction' ? (
+              <span className="chat-reaction-emoji" title={msg.sender}>
+                {msg.text}
+              </span>
+            ) : (
+              <>
+                <span className="chat-msg-sender" style={{ color: msg.senderColor === 'white' ? 'var(--text-primary)' : 'var(--accent-primary)' }}>
+                  {msg.sender}
+                </span>
+                <span className="chat-msg-text">{msg.text}</span>
+              </>
+            )}
+          </div>
+        ))}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Quick Reactions */}
+      {!isSpectator && (
+        <div className="chat-reactions">
+          {QUICK_REACTIONS.map(emoji => (
+            <button
+              key={emoji}
+              className="reaction-btn"
+              onClick={() => onSendReaction(emoji)}
+              title={`Send ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Chat Input */}
+      {!isSpectator && (
+        <div className="chat-input-row">
+          <input
+            ref={inputRef}
+            className="chat-input"
+            type="text"
+            value={inputText}
+            onChange={e => setInputText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            maxLength={200}
+            aria-label="Chat message"
+          />
+          <button className="chat-send-btn" onClick={handleSend} disabled={!inputText.trim()} aria-label="Send">
+            Send
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const OnlineStatusBar = ({
   playerColor,
   isMyTurn,
@@ -263,43 +340,132 @@ export const OnlineStatusBar = ({
   onResign,
   onLeaveGame,
   gameStatus,
+  movesCount = 0,
+  spectatorCount = 0,
+  connectionQuality = 'connected',
+  // Takeback props
+  onRequestTakeback,
+  pendingTakeback,
+  takebackRequestState,
+  onAcceptTakeback,
+  onDeclineTakeback,
+  // Draw props
+  onOfferDraw,
+  pendingDraw,
+  drawRequestState,
+  onAcceptDraw,
+  onDeclineDraw,
+  // Chat props
+  messages = [],
+  onSendMessage,
+  onSendReaction,
 }) => {
   if (gameStatus !== 'playing') return null;
 
   const isSpectator = playerColor === 'spectator';
 
   return (
-    <div className="online-status-bar">
-      {isSpectator ? (
-        <div className="online-status-info">
-          <span className="online-status-dot connected" />
-          <span>👁️ Spectating</span>
+    <>
+      <div className="online-status-bar">
+        {isSpectator ? (
+          <div className="online-status-info">
+            <span className="online-status-dot connected" />
+            <span>👁️ Spectating</span>
+          </div>
+        ) : (
+          <div className="online-status-info">
+            <span className={`online-status-dot ${isMyTurn ? 'your-turn' : 'connected'}`} aria-hidden="true" />
+            <span aria-live="polite" aria-atomic="true">
+              {isMyTurn ? '⚡ Your turn' : "⏳ Opponent's turn"}
+            </span>
+            <span style={{ margin: '0 4px', color: 'var(--border-color)' }} aria-hidden="true">|</span>
+            <span className={`online-status-dot ${connectionQuality === 'connected' ? 'connected' : 'reconnecting'}`} aria-hidden="true" />
+            <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
+              {connectionQuality === 'connected' ? 'Connected' : '● Disconnected'}
+            </span>
+            {spectatorCount > 0 && (
+              <>
+                <span style={{ margin: '0 4px', color: 'var(--border-color)' }} aria-hidden="true">|</span>
+                <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
+                  👁️ {spectatorCount} {spectatorCount === 1 ? 'spectator' : 'spectators'}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="online-status-actions">
+          {!isSpectator && takebackRequestState !== 'sent' && (
+            <button
+              className="online-btn-takeback"
+              onClick={onRequestTakeback}
+              disabled={movesCount === 0}
+              title={movesCount === 0 ? 'No moves to take back' : 'Request takeback'}
+            >
+              ↩ Takeback
+            </button>
+          )}
+          {!isSpectator && drawRequestState !== 'sent' && (
+            <button
+              className="online-btn-draw"
+              onClick={onOfferDraw}
+              title="Offer draw"
+            >
+              🤝 Draw
+            </button>
+          )}
+          {!isSpectator && (
+            <button className="online-btn-resign" onClick={onResign}>
+              Resign
+            </button>
+          )}
+          <button className="online-btn-leave" onClick={onLeaveGame}>
+            Leave
+          </button>
         </div>
-      ) : (
-        <div className="online-status-info">
-          <span className={`online-status-dot ${isMyTurn ? 'your-turn' : 'connected'}`} aria-hidden="true" />
-          <span aria-live="polite" aria-atomic="true">
-            {isMyTurn ? '⚡ Your turn' : '⏳ Opponent\'s turn'}
-          </span>
-          <span style={{ margin: '0 4px', color: 'var(--border-color)' }} aria-hidden="true">|</span>
-          <span className={`online-status-dot ${opponentConnected ? 'connected' : 'disconnected'}`} aria-hidden="true" />
-          <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
-            {opponentConnected ? 'Connected' : 'Disconnected'}
-          </span>
-        </div>
+      </div>
+
+      {/* Chat Panel */}
+      {messages !== undefined && (
+        <ChatPanel
+          messages={messages}
+          onSendMessage={onSendMessage || (() => {})}
+          onSendReaction={onSendReaction || (() => {})}
+          playerColor={playerColor}
+          isSpectator={isSpectator}
+        />
       )}
 
-      <div className="online-status-actions">
-        {!isSpectator && (
-          <button className="online-btn-resign" onClick={onResign}>
-            Resign
-          </button>
-        )}
-        <button className="online-btn-leave" onClick={onLeaveGame}>
-          Leave
-        </button>
-      </div>
-    </div>
+      {/* Takeback Request Modal (received) */}
+      {pendingTakeback && takebackRequestState === 'received' && (
+        <AccessibleDialog isOpen={true} onClose={onDeclineTakeback} labelledBy="takeback-title" className="game-action-dialog">
+          <div className="game-action-card">
+            <div className="game-action-icon">↩️</div>
+            <h2 id="takeback-title">Takeback Request</h2>
+            <p>Your opponent wants to take back the last move. Accept?</p>
+            <div className="game-result-actions">
+              <button className="game-result-btn-new" onClick={onAcceptTakeback}>Accept</button>
+              <button className="game-result-btn-close" onClick={onDeclineTakeback}>Decline</button>
+            </div>
+          </div>
+        </AccessibleDialog>
+      )}
+
+      {/* Draw Offer Modal (received) */}
+      {pendingDraw && drawRequestState === 'received' && (
+        <AccessibleDialog isOpen={true} onClose={onDeclineDraw} labelledBy="draw-title" className="game-action-dialog">
+          <div className="game-action-card">
+            <div className="game-action-icon">🤝</div>
+            <h2 id="draw-title">Draw Offer</h2>
+            <p>Your opponent offers a draw. Accept?</p>
+            <div className="game-result-actions">
+              <button className="game-result-btn-new" onClick={onAcceptDraw}>Accept</button>
+              <button className="game-result-btn-close" onClick={onDeclineDraw}>Decline</button>
+            </div>
+          </div>
+        </AccessibleDialog>
+      )}
+    </>
   );
 };
 

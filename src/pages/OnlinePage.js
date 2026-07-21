@@ -27,6 +27,16 @@ export default function OnlinePage() {
 
   const [showLobby, setShowLobby] = useState(true);
 
+  // Takeback & Draw modal states
+  const [pendingTakeback, setPendingTakeback] = useState(false);
+  const [pendingDraw, setPendingDraw] = useState(false);
+  // 'sent' | 'received' | null – tracks whether WE sent the request
+  const [takebackRequestState, setTakebackRequestState] = useState(null);
+  const [drawRequestState, setDrawRequestState] = useState(null);
+
+  // Chat & Reactions state
+  const [chatMessages, setChatMessages] = useState([]);
+
   const online = useOnlineGame();
 
   // ─── Online: Register move received callback ───
@@ -79,9 +89,11 @@ export default function OnlinePage() {
   const fenRef = useRef(fen);
   const movesRef = useRef(moves);
   const historyRef = useRef(moveHistory);
+  const historyPointerRef = useRef(historyPointer);
   useEffect(() => { fenRef.current = fen; }, [fen]);
   useEffect(() => { movesRef.current = moves; }, [moves]);
   useEffect(() => { historyRef.current = moveHistory; }, [moveHistory]);
+  useEffect(() => { historyPointerRef.current = historyPointer; }, [historyPointer]);
 
   useEffect(() => {
     online.onStateRequested((spectatorId) => {
@@ -114,6 +126,12 @@ export default function OnlinePage() {
       setMoveHistory([initialFen]);
       setHistoryPointer(0);
 
+      // Reset takeback/draw state on new game
+      setPendingTakeback(false);
+      setPendingDraw(false);
+      setTakebackRequestState(null);
+      setDrawRequestState(null);
+
       // Set board orientation
       if (online.playerColor) {
         setBoardOrientation(online.playerColor);
@@ -123,6 +141,139 @@ export default function OnlinePage() {
       playSound('notify');
       toast.success('🎮 Game started! You play as ' + (online.playerColor || 'white'));
     });
+  }, [online]);
+
+  // ─── Online: Takeback lifecycle ───
+  useEffect(() => {
+    online.onTakebackRequested(() => {
+      setPendingTakeback(true);
+      setTakebackRequestState('received');
+      setPendingDraw(false); // Cancel any pending draw modal
+      playSound('notify');
+    });
+
+    online.onTakebackResponded((accepted) => {
+      if (accepted) {
+        // Use refs to avoid stale closure issues
+        const curHistory = historyRef.current;
+        const curMoves = movesRef.current;
+        const curPointer = historyPointerRef.current;
+
+        // Opponent accepted – undo last 2 half-moves (or 1 if only 1 move)
+        const movesToUndo = Math.min(curHistory.length - 1, 2);
+        if (movesToUndo > 0) {
+          const newPointer = curPointer - movesToUndo;
+          const newFen = curHistory[newPointer];
+          const newGame = new Chess(newFen);
+          const newMoves = curMoves.slice(0, newPointer);
+
+          setFen(newFen);
+          setGame(newGame);
+          setMoves(newMoves);
+          setMoveHistory(curHistory.slice(0, newPointer + 1));
+          setHistoryPointer(newPointer);
+
+          // Figure out last move squares
+          if (newPointer > 0 && curMoves[newPointer - 1]) {
+            try {
+              const tempGame = new Chess(curHistory[newPointer - 1]);
+              const lastMoveObj = tempGame.move(curMoves[newPointer - 1], { sloppy: true });
+              if (lastMoveObj) setLastMove({ from: lastMoveObj.from, to: lastMoveObj.to });
+              else setLastMove(null);
+            } catch { setLastMove(null); }
+          } else {
+            setLastMove(null);
+          }
+
+          toast.success('Takeback accepted!', { autoClose: 2000 });
+        }
+      } else {
+        toast.info('Opponent declined the takeback request.');
+      }
+      setPendingTakeback(false);
+      setTakebackRequestState(null);
+    });
+  }, [online]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Online: Draw offer lifecycle ───
+  useEffect(() => {
+    online.onDrawOffered(() => {
+      setPendingDraw(true);
+      setDrawRequestState('received');
+      setPendingTakeback(false); // Cancel any pending takeback modal
+      playSound('notify');
+    });
+
+    online.onDrawResponded((accepted) => {
+      if (accepted) {
+        toast.success('🤝 Draw accepted!', { autoClose: 3000 });
+      } else {
+        toast.info('Opponent declined the draw offer.');
+      }
+      setPendingDraw(false);
+      setDrawRequestState(null);
+    });
+  }, [online]);
+
+  // ─── Online: Chat & Reactions ───
+  useEffect(() => {
+    online.onChatMessage((text, senderColor, senderId) => {
+      const isPlayerWhite = senderColor === 'white';
+      const senderLabel = isPlayerWhite ? 'White' : 'Black';
+      setChatMessages(prev => [...prev, {
+        type: 'text',
+        text,
+        sender: senderLabel,
+        senderColor,
+        isOwn: false,
+      }]);
+    });
+
+    online.onReaction((emoji, senderColor, senderId) => {
+      const isPlayerWhite = senderColor === 'white';
+      const senderLabel = isPlayerWhite ? 'White' : 'Black';
+      setChatMessages(prev => [...prev, {
+        type: 'reaction',
+        text: emoji,
+        sender: senderLabel,
+        senderColor,
+        isOwn: false,
+      }]);
+      // Hapus reaksi setelah 3 detik
+      setTimeout(() => {
+        setChatMessages(prev => prev.filter((_, i) => i !== prev.length - 1));
+      }, 3000);
+    });
+  }, [online]);
+
+  const handleSendMessage = useCallback((text) => {
+    const isPlayerWhite = online.playerColor === 'white';
+    const senderLabel = isPlayerWhite ? 'White' : 'Black';
+    setChatMessages(prev => [...prev, {
+      type: 'text',
+      text,
+      sender: 'You',
+      senderColor: online.playerColor,
+      isOwn: true,
+    }]);
+    online.sendChatMessage(text);
+  }, [online]);
+
+  const handleSendReaction = useCallback((emoji) => {
+    const isPlayerWhite = online.playerColor === 'white';
+    const senderLabel = isPlayerWhite ? 'White' : 'Black';
+    setChatMessages(prev => [...prev, {
+      type: 'reaction',
+      text: emoji,
+      sender: 'You',
+      senderColor: online.playerColor,
+      isOwn: true,
+    }]);
+    online.sendReaction(emoji);
+    // Hapus reaksi sendiri setelah 3 detik
+    setTimeout(() => {
+      setChatMessages(prev => prev.filter((_, i) => i !== prev.length - 1));
+    }, 3000);
   }, [online]);
 
   const onDrop = ({ sourceSquare, targetSquare }) => {
@@ -223,6 +374,48 @@ export default function OnlinePage() {
             onResign={online.resign}
             onLeaveGame={handleLeaveOnlineGame}
             gameStatus={online.gameStatus}
+            movesCount={moves.length}
+            spectatorCount={online.spectatorCount}
+            connectionQuality={online.opponentConnected ? 'connected' : 'disconnected'}
+            onRequestTakeback={() => {
+              online.sendTakebackRequest();
+              setTakebackRequestState('sent');
+              toast.info('Takeback request sent to opponent.');
+            }}
+            onOfferDraw={() => {
+              online.offerDraw();
+              setDrawRequestState('sent');
+              toast.info('Draw offer sent to opponent.');
+            }}
+            // Takeback/Draw modal props
+            pendingTakeback={pendingTakeback}
+            takebackRequestState={takebackRequestState}
+            onAcceptTakeback={() => {
+              online.sendTakebackResponse(true);
+              setPendingTakeback(false);
+              setTakebackRequestState(null);
+            }}
+            onDeclineTakeback={() => {
+              online.sendTakebackResponse(false);
+              setPendingTakeback(false);
+              setTakebackRequestState(null);
+            }}
+            pendingDraw={pendingDraw}
+            drawRequestState={drawRequestState}
+            onAcceptDraw={() => {
+              online.sendDrawResponse(true);
+              setPendingDraw(false);
+              setDrawRequestState(null);
+            }}
+            onDeclineDraw={() => {
+              online.sendDrawResponse(false);
+              setPendingDraw(false);
+              setDrawRequestState(null);
+            }}
+            // Chat props
+            messages={chatMessages}
+            onSendMessage={handleSendMessage}
+            onSendReaction={handleSendReaction}
           />
           <Suspense fallback={<BoardSkeleton />}>
             <ChessboardContainer

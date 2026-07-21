@@ -37,6 +37,10 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     if (engine.current) {
       engine.current.sendCommand(command);
     }
+    // Reset pending classification when starting a new game or stopping
+    if (command === 'ucinewgame' || command === 'stop') {
+      pendingClassifyRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -56,6 +60,11 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
         };
 
         if (idx === 0) {
+          // Normalisasi skor ke perspektif Putih: Stockfish report relative-to-side-to-move
+          const turn = fenRef.current.split(' ')[1];
+          if (lineEval.type === 'cp' && turn === 'b') {
+            lineEval.score = -lineEval.score;
+          }
           setStockfishEval(lineEval);
         }
 
@@ -68,6 +77,14 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
         if (pendingClassifyRef.current) {
           let beforeScore = evalBeforeRef.current;
           let afterScore = data.score.value;
+
+          // Normalisasi afterScore ke perspektif Putih (sama seperti lineEval.score)
+          // Normalisasi: new position punya turn = !sideThatMoved
+          // Kalau sideThatMoved = 'w', new position punya black's turn → Stockfish score dari perspektif hitam → negate
+          const evalTurn = pendingSideRef.current;
+          if (data.score.type === 'cp' && evalTurn === 'w') {
+            afterScore = -afterScore;
+          }
 
           if (data.score.type === 'mate') {
             beforeScore = beforeScore || 0;

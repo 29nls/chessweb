@@ -17,7 +17,10 @@ export function detectOpening(moves) {
       }
     }
     if (matchLength > 0 && matchLength >= moves.length) {
-      if (matchLength > bestLength) {
+      // Bugfix: prefer opening dengan line paling panjang (paling spesifik) saat tie
+      const currentIsLonger = matchLength > bestLength;
+      const currentIsTiedAndMoreSpecific = matchLength === bestLength && bestMatch && bookMoves.length > bestMatch.moves.length;
+      if (currentIsLonger || currentIsTiedAndMoreSpecific) {
         bestLength = matchLength;
         bestMatch = opening;
       }

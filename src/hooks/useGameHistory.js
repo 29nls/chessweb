@@ -16,11 +16,15 @@ export function useGameHistory() {
   const [historyPointer, setHistoryPointer] = useState(0);
   const [lastMove, setLastMove] = useState(null);
 
-  const applyMove = useCallback((gameCopy, moveResult) => {
+  const applyMove = useCallback((gameCopy, moveResult, currentPointer, currentMoves) => {
     const newFen = gameCopy.fen();
     setFen(newFen);
     setGame(gameCopy);
-    if (moveResult.san) setMoves((prev) => [...prev, moveResult.san]);
+    if (moveResult.san) {
+      // Trim moves array seperti pushHistory trim moveHistory, untuk mencegah cabang stale
+      const trimmedMoves = currentMoves.slice(0, currentPointer);
+      setMoves([...trimmedMoves, moveResult.san]);
+    }
     setLastMove({ from: moveResult.from, to: moveResult.to });
     return newFen;
   }, []);
@@ -84,7 +88,8 @@ export function useGameHistory() {
       setLastMove(lastMoveSquares);
       sendCommand('ucinewgame');
       sendCommand(`position fen ${newFen}`);
-      return { newPointer, addLabel: LABELS.GOOD };
+      // Bugfix: jangan selalu return GOOD — biarkan engine generate ulang klasifikasi
+      return { newPointer, addLabel: null };
     } else {
       toast.info('No moves to redo.');
       return { newPointer: currentPointer, addLabel: null };

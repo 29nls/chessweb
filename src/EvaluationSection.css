@@ -124,3 +124,76 @@
   font-family: 'Courier New', monospace;
 }
 
+/* ===== Visual Evaluation Bar ===== */
+.eval-bar-container {
+  display: flex;
+  height: 28px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1a1a1a;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+
+.eval-bar-white {
+  background: linear-gradient(90deg, #f0f0f0, #fff);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+  min-width: 2%;
+}
+
+.eval-bar-black {
+  background: linear-gradient(90deg, #2d2d2d, #1a1a1a);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 4px;
+  min-width: 2%;
+}
+
+.eval-bar-divider {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-color);
+  z-index: 1;
+}
+
+.eval-bar-score {
+  font-size: 0.7em;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.3px;
+}
+
+.eval-bar-white .eval-bar-score {
+  color: #1a1a1a;
+}
+
+.eval-bar-black .eval-bar-score {
+  color: #f0f0f0;
+}
+
+/* Analysis Mode Badge */
+.analysis-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 20px;
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+}
+

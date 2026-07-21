@@ -7,13 +7,13 @@
  */
 
 export const LABELS = {
-  BRILLIANT: { label: 'Brilliant', icon: '??', color: '#4FC3F7' },
+  BRILLIANT: { label: 'Brilliant', icon: '++', color: '#4FC3F7' },  // Berubah dari '??' (dulu clash dengan BLUNDER)
   GREAT:     { label: 'Great',     icon: '!?', color: '#66BB6A' },
   BEST:      { label: 'Best',      icon: '!!', color: '#43A047' },
   EXCELLENT: { label: 'Excellent', icon: '!',  color: '#81C784' },
   GOOD:      { label: 'Good',      icon: '',   color: '#9E9E9E' },
-  INACCURACY:{ label: 'Inaccuracy',icon: '?',  color: '#FFA726' },
-  MISS:      { label: 'Miss',      icon: '?!', color: '#FF7043' },
+  INACCURACY:{ label: 'Inaccuracy',icon: '?!', color: '#FFA726' }, // Berubah dari '?' (dulu clash dengan MISTAKE)
+  MISS:      { label: 'Miss',      icon: '!?', color: '#FF7043' }, // Berubah dari '?!' (swap dengan INACCURACY)
   MISTAKE:   { label: 'Mistake',   icon: '?',  color: '#EF5350' },
   BLUNDER:   { label: 'Blunder',   icon: '??', color: '#E53935' },
 };

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
 import Modal from '../Modal';
+import AccessibleDialog from '../AccessibleDialog';
 import MoveHistory from '../MoveHistory';
 import { useChessEngine } from '../hooks/useChessEngine';
 import { useGameHistory } from '../hooks/useGameHistory';
@@ -21,6 +22,12 @@ export default function AnalysisPage() {
   const [isDepthAnalysisEnabled, setIsDepthAnalysisEnabled] = useState(false);
   const [isAutoMoveEnabled, setIsAutoMoveEnabled] = useState(false);
   const [multiPv, setMultiPv] = useState(1);
+
+  // Promotion dialog state
+  const [promotionPending, setPromotionPending] = useState(null); // { sourceSquare, targetSquare, side }
+
+  // Game over banner state
+  const [gameOverBanner, setGameOverBanner] = useState(null);
 
   const [showFenModal, setShowFenModal] = useState(false);
   const [showPgnModal, setShowPgnModal] = useState(false);
@@ -51,8 +58,15 @@ export default function AnalysisPage() {
   const history = useGameHistory();
 
   const handleBestMove = useCallback((gameCopy, moveResult) => {
-    history.applyMove(gameCopy, moveResult);
+    history.applyMove(gameCopy, moveResult, history.historyPointer, history.moves);
     playMoveSound(moveResult, gameCopy);
+    // Deteksi game over juga untuk engine auto-move
+    if (gameCopy.isCheckmate()) {
+      const winner = gameCopy.turn() === 'w' ? 'Black' : 'White';
+      setGameOverBanner(`♛ Checkmate! ${winner} wins!`);
+    } else if (gameCopy.isDraw()) {
+      setGameOverBanner('🤝 Game ended in a draw');
+    }
   }, [history]);
 
   const engine = useChessEngine({
@@ -94,16 +108,9 @@ export default function AnalysisPage() {
   }, [history.fen, isDepthAnalysisEnabled, depth, movetime, engine]);
 
   // ── Move handlers ─────────────────────────────────────────
-  const onDrop = ({ sourceSquare, targetSquare }) => {
+  const executeMove = useCallback((sourceSquare, targetSquare, promotion = 'q') => {
     const gameCopy = new Chess(history.fen);
-    const moveOptions = { from: sourceSquare, to: targetSquare };
-
-    const piece = gameCopy.get(sourceSquare);
-    if (piece && piece.type === 'p' &&
-      ((piece.color === 'w' && targetSquare[1] === '8') ||
-       (piece.color === 'b' && targetSquare[1] === '1'))) {
-      moveOptions.promotion = 'q';
-    }
+    const moveOptions = { from: sourceSquare, to: targetSquare, promotion };
 
     const side = history.fen.split(' ')[1];
     engine.prepareClassification(side);
@@ -118,15 +125,53 @@ export default function AnalysisPage() {
     playMoveSound(move, gameCopy);
 
     const newFen = gameCopy.fen();
-    history.applyMove(gameCopy, move);
+    history.applyMove(gameCopy, move, history.historyPointer, history.moves);
     history.pushHistory(newFen, history.historyPointer, history.moveHistory);
     engine.sliceClassifications(history.historyPointer);
     engine.sendCommand(`position fen ${newFen}`);
+
+    // Check for game-ending conditions
+    if (gameCopy.isCheckmate()) {
+      const winner = gameCopy.turn() === 'w' ? 'Black' : 'White';
+      setGameOverBanner(`♛ Checkmate! ${winner} wins!`);
+    } else if (gameCopy.isStalemate()) {
+      setGameOverBanner('🤝 Stalemate! The game is a draw.');
+    } else if (gameCopy.isDraw()) {
+      let reason = 'Draw';
+      if (gameCopy.isThreefoldRepetition()) reason = 'Threefold repetition';
+      else if (gameCopy.isInsufficientMaterial()) reason = 'Insufficient material';
+      else reason = 'Draw';
+      setGameOverBanner(`🤝 ${reason}`);
+    }
+
     return true;
+  }, [history, engine]);
+
+  const onDrop = ({ sourceSquare, targetSquare }) => {
+    const gameCopy = new Chess(history.fen);
+    const piece = gameCopy.get(sourceSquare);
+
+    // Check for pawn promotion - show dialog instead of auto-queening
+    if (piece && piece.type === 'p' &&
+      ((piece.color === 'w' && targetSquare[1] === '8') ||
+       (piece.color === 'b' && targetSquare[1] === '1'))) {
+      setPromotionPending({ sourceSquare, targetSquare, side: piece.color });
+      return false; // Don't execute yet, wait for promotion choice
+    }
+
+    return executeMove(sourceSquare, targetSquare, 'q');
   };
 
+  const handlePromotionChoice = useCallback((piece) => {
+    if (!promotionPending) return;
+    const { sourceSquare, targetSquare } = promotionPending;
+    setPromotionPending(null);
+    executeMove(sourceSquare, targetSquare, piece);
+  }, [promotionPending, executeMove]);
+
   const undoMove = () => {
-    engine.sliceClassifications(history.moveClassifications ? history.moveClassifications.length - 1 : 0);
+    // Bugfix: history tidak punya moveClassifications — pakai engine
+    engine.sliceClassifications(engine.moveClassifications.length - 1);
     history.undo(history.historyPointer, history.moveHistory, history.moves, engine.sendCommand);
   };
 
@@ -136,6 +181,7 @@ export default function AnalysisPage() {
   };
 
   const resetGame = () => {
+    setGameOverBanner(null);
     engine.resetEval();
     engine.resetClassifications();
     history.reset(engine.sendCommand);
@@ -150,11 +196,34 @@ export default function AnalysisPage() {
 
   const checkedKingSquare = findCheckedKingSquare(history.game);
 
+  // ── Keyboard Shortcuts ────────────────────────────────────
+  const keyHandlers = useRef({});
+  keyHandlers.current = { undoMove, redoMove, resetGame, flipBoard };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+      const h = keyHandlers.current;
+      switch (e.key) {
+        case 'ArrowLeft': e.preventDefault(); h.undoMove(); break;
+        case 'ArrowRight': e.preventDefault(); h.redoMove(); break;
+        case 'r': case 'R': e.preventDefault(); h.resetGame(); break;
+        case 'f': case 'F': e.preventDefault(); h.flipBoard(); break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // ── FEN / PGN handlers ────────────────────────────────────
   const handleFenClick = () => { setFenInput(history.game.fen()); setShowFenModal(true); };
 
   const handleImportFen = () => {
     try {
+      setGameOverBanner(null);
       engine.resetEval();
       engine.resetClassifications();
       history.importFen(fenInput, engine.sendCommand);
@@ -217,6 +286,7 @@ export default function AnalysisPage() {
 
   const handleImportPgn = () => {
     try {
+      setGameOverBanner(null);
       engine.resetEval();
       engine.resetClassifications();
       history.importPgn(pgnInput, engine.sendCommand);
@@ -298,6 +368,46 @@ export default function AnalysisPage() {
         <Suspense fallback={<MoveHistorySkeleton />}>
           <MoveHistory moves={history.moves} classifications={engine.moveClassifications} />
         </Suspense>
+
+        {/* Game Over Banner */}
+        {gameOverBanner && (
+          <div className="game-over-banner" role="alert">
+            <span className="game-over-text">{gameOverBanner}</span>
+            <button className="button-primary" onClick={resetGame} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
+              New Game
+            </button>
+            <button className="button-secondary" onClick={() => setGameOverBanner(null)} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Promotion Dialog - menggunakan AccessibleDialog native <dialog> untuk konsistensi aksesibilitas */}
+        {promotionPending && (
+          <AccessibleDialog isOpen={true} onClose={() => setPromotionPending(null)} labelledBy="promotion-dialog-title">
+            <div className="promotion-dialog">
+              <h2 id="promotion-dialog-title" className="promotion-title">Choose promotion piece</h2>
+              <div className="promotion-choices">
+                {['q', 'r', 'b', 'n'].map(piece => (
+                  <button
+                    key={piece}
+                    className="promotion-btn"
+                    onClick={() => handlePromotionChoice(piece)}
+                    aria-label={`Promote to ${piece === 'q' ? 'Queen' : piece === 'r' ? 'Rook' : piece === 'b' ? 'Bishop' : 'Knight'}`}
+                  >
+                    {piece === 'q' && '♕'}
+                    {piece === 'r' && '♖'}
+                    {piece === 'b' && '♗'}
+                    {piece === 'n' && '♘'}
+                    <span className="promotion-label">
+                      {piece === 'q' ? 'Queen' : piece === 'r' ? 'Rook' : piece === 'b' ? 'Bishop' : 'Knight'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </AccessibleDialog>
+        )}
       </main>
 
       <Modal isOpen={showFenModal} onClose={() => setShowFenModal(false)} title="FEN">

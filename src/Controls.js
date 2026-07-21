@@ -1,4 +1,12 @@
+const ENGINE_PRESETS = [
+  { label: 'Beginner', movetime: 500, depth: 10 },
+  { label: 'Intermediate', movetime: 2000, depth: 15 },
+  { label: 'Advanced', movetime: 5000, depth: 20 },
+  { label: 'Master', movetime: 10000, depth: 30 },
+];
+
 import React, { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import {
   RotateCcw,
   Repeat,
@@ -21,10 +29,11 @@ const Section = ({ title, icon, children }) => (
   </div>
 );
 
-const IconButton = ({ onClick, icon, text, disabled = false }) => (
-  <button onClick={onClick} className="icon-button" disabled={disabled}>
+const IconButton = ({ onClick, icon, text, disabled = false, shortcut = '' }) => (
+  <button onClick={onClick} className="icon-button" disabled={disabled} title={shortcut ? `${text} (${shortcut})` : text}>
     {icon}
     <span>{text}</span>
+    {shortcut && <kbd className="shortcut-hint">{shortcut}</kbd>}
   </button>
 );
 
@@ -96,14 +105,25 @@ const Controls = ({
     sendCommand(`setoption name Hash value ${value}`);
   };
 
+  const handlePresetChange = (e) => {
+    const value = e.target.value;
+    if (!value) return;
+    const preset = ENGINE_PRESETS.find(p => p.label === value);
+    if (!preset) return;
+    setEngineSettings.setMovetime(preset.movetime);
+    setEngineSettings.setDepth(preset.depth);
+    sendCommand(`go movetime ${preset.movetime}`);
+    toast(`Preset: ${preset.label} (${preset.movetime}ms, depth ${preset.depth})`);
+  };
+
   return (
     <div className="panel controls">
       <Section title="Game" icon={<Play size={20} />}>
         <div className="button-grid">
-          <IconButton onClick={onReset} icon={<RotateCcw size={18} />} text="New" />
-          <IconButton onClick={onFlip} icon={<Repeat size={18} />} text="Flip" />
-          <IconButton onClick={onUndo} icon={<ChevronLeft size={18} />} text="Undo" disabled={!canUndo} />
-          <IconButton onClick={onRedo} icon={<ChevronRight size={18} />} text="Redo" disabled={!canRedo} />
+          <IconButton onClick={onReset} icon={<RotateCcw size={18} />} text="New" shortcut="R" />
+          <IconButton onClick={onFlip} icon={<Repeat size={18} />} text="Flip" shortcut="F" />
+          <IconButton onClick={onUndo} icon={<ChevronLeft size={18} />} text="Undo" disabled={!canUndo} shortcut="←" />
+          <IconButton onClick={onRedo} icon={<ChevronRight size={18} />} text="Redo" disabled={!canRedo} shortcut="→" />
         </div>
       </Section>
 
@@ -158,15 +178,34 @@ const Controls = ({
             </select>
           </div>
         )}
-        <div className="control-group">
-          <label htmlFor="threads">CPU Threads: {engineSettings.threads}</label>
-          <input type="range" id="threads" min="1" max={engineSettings.maxThreads} value={engineSettings.threads} onChange={handleThreadsChange} />
-        </div>
+        {engineMode === 'backend' && (
+          <div className="control-group" title="Threads setting hanya efektif di mode backend">
+            <label htmlFor="threads">CPU Threads: {engineSettings.threads}</label>
+            <input type="range" id="threads" min="1" max={engineSettings.maxThreads} value={engineSettings.threads} onChange={handleThreadsChange} />
+          </div>
+        )}
+        {engineMode !== 'backend' && (
+          <div className="control-group">
+            <label htmlFor="threads-single">Threads: 1 (single-thread WASM)</label>
+            <input type="range" id="threads-single" min="1" max="1" value="1" disabled style={{ opacity: 0.4 }} />
+          </div>
+        )}
         <div className="control-group">
           <label htmlFor="hash">Hash Size (MB)</label>
           <select id="hash" value={engineSettings.hashSize} onChange={handleHashChange}>
-            {[16, 32, 64, 128, 256, 512, 1024].map(size => (
-              <option key={size} value={size}>{size}</option>
+            {[16, 32, 64, 128, 256, 512, 1024]
+              .filter(size => size <= engineSettings.maxHashSize)
+              .map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+          </select>
+        </div>
+        <div className="control-group">
+          <label htmlFor="preset">Strength Preset</label>
+          <select id="preset" onChange={handlePresetChange} defaultValue="">
+            <option value="" disabled>Select preset...</option>
+            {ENGINE_PRESETS.map(p => (
+              <option key={p.label} value={p.label}>{p.label}</option>
             ))}
           </select>
         </div>

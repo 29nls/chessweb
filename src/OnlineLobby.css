@@ -401,6 +401,12 @@
   animation: dot-pulse 1s ease-in-out infinite;
 }
 
+.online-status-dot.reconnecting {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+  animation: dot-pulse 0.6s ease-in-out infinite;
+}
+
 .online-status-actions {
   display: flex;
   gap: 8px;
@@ -423,6 +429,56 @@
   color: #fff;
 }
 
+.online-btn-takeback {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  border-radius: 6px;
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.online-btn-takeback:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.online-btn-takeback:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--accent-primary);
+}
+
+.online-btn-draw {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--online-accent);
+  border: 1px solid var(--online-accent);
+  border-radius: 6px;
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.online-btn-draw:hover {
+  background: var(--online-accent);
+  color: #fff;
+}
+
+.online-btn-draw:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--online-accent);
+}
+
 .online-btn-leave {
   padding: 6px 14px;
   background: var(--bg-tertiary);
@@ -438,6 +494,57 @@
 .online-btn-leave:hover {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
+}
+
+/* ===== Game Action Dialog (Takeback / Draw) ===== */
+
+.game-action-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  animation: lobby-fade-in 0.2s ease-out;
+}
+
+.game-action-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  max-width: 360px;
+  width: 90%;
+  animation: lobby-slide-up 0.3s ease-out;
+}
+
+.game-action-icon {
+  font-size: 2.5em;
+  margin-bottom: 12px;
+}
+
+.game-action-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.3em;
+  color: var(--text-primary);
+}
+
+.game-action-card p {
+  margin: 0 0 24px;
+  color: var(--text-secondary);
+  font-size: 1em;
+}
+
+.game-action-card .game-result-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.game-action-card .game-result-actions button {
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-size: 0.95em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 /* ===== Game Result Dialog ===== */
@@ -546,6 +653,166 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* ===== Chat Panel ===== */
+
+.chat-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  margin-top: 12px;
+  overflow: hidden;
+  animation: fade-in-up 0.3s ease-out;
+}
+
+.chat-messages {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+}
+
+.chat-empty {
+  color: var(--text-secondary);
+  font-size: 0.8em;
+  text-align: center;
+  padding: 20px 0;
+  font-style: italic;
+}
+
+.chat-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.85em;
+  animation: fade-in-up 0.2s ease-out;
+}
+
+.chat-msg-own {
+  flex-direction: row-reverse;
+}
+
+.chat-msg-own .chat-msg-text {
+  background: var(--accent-primary);
+  color: #fff;
+  border-radius: 12px 4px 12px 12px;
+}
+
+.chat-msg-sender {
+  font-size: 0.75em;
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 40px;
+}
+
+.chat-msg-text {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 4px 12px 12px 12px;
+  max-width: 80%;
+  word-break: break-word;
+  line-height: 1.3;
+}
+
+.chat-reaction {
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.chat-reaction-emoji {
+  font-size: 1.8em;
+  cursor: default;
+  animation: lobby-slide-up 0.3s ease-out;
+  transition: transform 0.2s ease;
+}
+
+.chat-reaction-emoji:hover {
+  transform: scale(1.3);
+}
+
+.chat-reactions {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.reaction-btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 1.2em;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.reaction-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-primary);
+  transform: scale(1.15);
+}
+
+.reaction-btn:active {
+  transform: scale(0.95);
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.chat-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85em;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.chat-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.chat-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.chat-send-btn {
+  padding: 8px 16px;
+  background: var(--accent-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.chat-send-btn:hover {
+  background: var(--accent-primary-hover);
+}
+
+.chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===== Online mode active indicator in controls ===== */
