@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { GitBranch } from 'react-feather';
+import React, { useMemo, useState } from 'react';
+import { GitBranch, Search, X } from 'react-feather';
 import { getCommonNextMoves, detectOpening } from './lib/openings';
 import './MoveHistory.css';
 
@@ -34,6 +34,7 @@ function useBranchData(moves) {
 const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMove }) => {
   const scrollRef = React.useRef(null);
   const prevActiveRef = React.useRef(currentMoveIndex);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Auto-scroll to the active row when it changes
   React.useEffect(() => {
@@ -45,21 +46,34 @@ const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMo
 
   const branchData = useBranchData(moves);
 
-  // Group moves into pairs (White, Black) per row
-  const moveRows = [];
-  for (let i = 0; i < moves.length; i += 2) {
-    const moveNumber = Math.floor(i / 2) + 1;
-    const whiteMove = moves[i];
-    const blackMove = moves[i + 1] || null;
-    const whiteClass = classifications[i] || null;
-    const blackClass = classifications[i + 1] || null;
+  // Build move rows from flat moves array
+  const allMoveRows = useMemo(() => {
+    const rows = [];
+    for (let i = 0; i < moves.length; i += 2) {
+      const moveNumber = Math.floor(i / 2) + 1;
+      rows.push({
+        number: moveNumber,
+        white: { san: moves[i], classification: classifications[i] || null, idx: i },
+        black: moves[i + 1]
+          ? { san: moves[i + 1], classification: classifications[i + 1] || null, idx: i + 1 }
+          : null,
+      });
+    }
+    return rows;
+  }, [moves, classifications]);
 
-    moveRows.push({
-      number: moveNumber,
-      white: { san: whiteMove, classification: whiteClass, idx: i },
-      black: blackMove ? { san: blackMove, classification: blackClass, idx: i + 1 } : null,
+  // Filter rows by search query
+  const displayRows = useMemo(() => {
+    if (!searchQuery.trim()) return allMoveRows;
+    const q = searchQuery.toLowerCase();
+    return allMoveRows.filter(row => {
+      const wMatch = row.white.san.toLowerCase().includes(q);
+      const wcMatch = row.white.classification?.label?.toLowerCase().includes(q);
+      const bMatch = row.black?.san?.toLowerCase().includes(q);
+      const bcMatch = row.black?.classification?.label?.toLowerCase().includes(q);
+      return wMatch || wcMatch || bMatch || bcMatch;
     });
-  }
+  }, [allMoveRows, searchQuery]);
 
   const renderBadge = (classification) => {
     if (!classification) return null;
@@ -140,14 +154,41 @@ const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMo
       <h3 className="move-history-title">
         <GitBranch size={18} />
         Game Explorer
+        {searchQuery.trim() && (
+          <span className="move-search-count">
+            {displayRows.length} / {allMoveRows.length} rows
+          </span>
+        )}
       </h3>
+
+      {/* Search bar */}
+      <div className="move-search-wrapper">
+        <Search size={14} className="move-search-icon" />
+        <input
+          type="text"
+          className="move-search-input"
+          placeholder="Search moves (e4, Nf3, etc.)"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search moves"
+        />
+        {searchQuery && (
+          <button className="move-search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      {displayRows.length === 0 && searchQuery.trim() ? (
+        <div className="empty-move">No moves match &quot;{searchQuery}&quot;</div>
+      ) : (
       <div className="move-history-scroll" data-testid="move-list" role="list" aria-label="Game explorer tree">
         <div className="move-row move-row-header" role="row">
           <div className="move-number" role="columnheader">#</div>
           <div role="columnheader">White</div>
           <div role="columnheader">Black</div>
         </div>
-        {moveRows.map((row) => (
+        {displayRows.map((row) => (
           <React.Fragment key={row.number}>
             {/* Main move row */}
             <div
@@ -193,6 +234,7 @@ const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMo
           </React.Fragment>
         ))}
       </div>
+      )}
     </div>
   );
 };

@@ -53,6 +53,65 @@ const ChessboardContainer = React.memo(({
   const [legalMoves, setLegalMoves] = useState([]);
   const [captureSquares, setCaptureSquares] = useState(new Set());
 
+  // Board flip animation — smooth 3D card flip when orientation changes
+  const [flipPhase, setFlipPhase] = useState(null); // 'flip-out' | 'flip-in' | null
+  const [effectiveOrientation, setEffectiveOrientation] = useState(null);
+  const prevOrientationRef = useRef(boardOrientation);
+
+  useEffect(() => {
+    if (prevOrientationRef.current !== boardOrientation) {
+      const newOrientation = boardOrientation;
+      prevOrientationRef.current = boardOrientation;
+
+      // Phase 1: rotateY 0° → -90° (board becomes invisible, edge-on)
+      setEffectiveOrientation(null); // keep old orientation during flip-out
+      setFlipPhase('flip-out');
+
+      // Phase 2: mid-point, switch orientation (invisible because board is edge-on)
+      const t1 = setTimeout(() => {
+        setEffectiveOrientation(newOrientation);
+        setFlipPhase('flip-in');
+      }, 200);
+
+      // Phase 3: animation complete
+      const t2 = setTimeout(() => {
+        setFlipPhase(null);
+        setEffectiveOrientation(null);
+      }, 500);
+
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [boardOrientation]);
+
+  // Move animation state — triggered whenever lastMove changes (player OR engine move)
+  const [moveAnim, setMoveAnim] = useState(null); // { from, to, animId }
+  const prevLastMoveRef = useRef(lastMove);
+  const ANIM_DURATION_MS = 400;
+
+  useEffect(() => {
+    // Only animate when lastMove actually changes to a DIFFERENT move
+    if (lastMove && (
+      !prevLastMoveRef.current ||
+      prevLastMoveRef.current.from !== lastMove.from ||
+      prevLastMoveRef.current.to !== lastMove.to
+    )) {
+      const animId = Date.now() + Math.random();
+      setMoveAnim({ from: lastMove.from, to: lastMove.to, animId });
+
+      // Clear animation state after duration
+      const timer = setTimeout(() => {
+        setMoveAnim((prev) => (prev?.animId === animId ? null : prev));
+      }, ANIM_DURATION_MS);
+
+      prevLastMoveRef.current = lastMove;
+      return () => clearTimeout(timer);
+    }
+
+    if (!lastMove) {
+      prevLastMoveRef.current = null;
+    }
+  }, [lastMove]);
+
   // Reset selection when FEN changes (opponent moved, etc.)
   useEffect(() => {
     setSelectedSquare(null);
@@ -131,6 +190,12 @@ const ChessboardContainer = React.memo(({
   const makeAutoMoveRef = useRef(makeAutoOpponentMove);
   makeAutoMoveRef.current = makeAutoOpponentMove;
 
+  // Gunakan ref untuk handleSquareClick agar boardOptions useMemo
+  // tidak perlu mendeklarasikannya sebagai dependency (mencegah re-render
+  // tidak perlu pada setiap klik kotak).
+  const handleSquareClickRef = useRef(handleSquareClick);
+  handleSquareClickRef.current = handleSquareClick;
+
   useEffect(() => {
     // Disable auto-move in online mode — opponent moves come via Supabase
     if (isOnlineMode) return;
@@ -152,21 +217,27 @@ const ChessboardContainer = React.memo(({
     }
   }, [fen, isAutoMoveEnabled, userColor, isOnlineMode]); // makeAutoOpponentMove dihilangkan dari deps -- pakai ref
 
-  // Build square styles: legal move dots + check highlight + last move highlight
+  // Build square styles: legal move dots + check highlight + last move highlight + move animation
   // Merge with any custom styles from parent (e.g., puzzle hints)
   // Bugfix #3: memoize to avoid unnecessary re-renders of react-chessboard
   const squareStyles = useMemo(() => {
     const styles = { ...customSquareStyles };
 
-    // Last move highlight
+    // Last move highlight — with animated variant if moveAnim is active
     if (lastMove) {
+      const isAnimating = moveAnim && moveAnim.from === lastMove.from && moveAnim.to === lastMove.to;
+
       styles[lastMove.from] = {
         background: 'rgba(155, 199, 0, 0.41)',
         borderRadius: '0',
+        // Saat engine move, source square flash departure
+        ...(isAnimating ? { animation: 'move-departure 0.4s ease-out forwards' } : {}),
       };
       styles[lastMove.to] = {
         background: 'rgba(155, 199, 0, 0.41)',
         borderRadius: '0',
+        // Saat engine move, target square bounce arrival
+        ...(isAnimating ? { animation: 'move-arrival 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' } : {}),
       };
     }
 
@@ -206,7 +277,7 @@ const ChessboardContainer = React.memo(({
     });
 
     return styles;
-  }, [customSquareStyles, lastMove, checkedKingSquare, selectedSquare, legalMoves, captureSquares]);
+  }, [customSquareStyles, lastMove, checkedKingSquare, selectedSquare, legalMoves, captureSquares, moveAnim]);
 
   // react-chessboard v5 API: all props go inside an `options` object.
   // Callbacks receive objects: onPieceDrop({piece, sourceSquare, targetSquare}),
@@ -215,7 +286,7 @@ const ChessboardContainer = React.memo(({
   const boardOptions = useMemo(() => ({
     id: 'graphite-chessboard',
     position: fen,
-    boardOrientation,
+    boardOrientation: effectiveOrientation || boardOrientation,
     animationDurationInMs: 300,
     allowDragging: !isSpectator,
     darkSquareStyle: { backgroundColor: 'var(--board-dark)' },
@@ -227,9 +298,22 @@ const ChessboardContainer = React.memo(({
     arrows: lastMove && showArrow
       ? [{ startSquare: lastMove.from, endSquare: lastMove.to, color: 'var(--accent-primary)' }]
       : [],
+    showNotation: true,
+    darkSquareNotationStyle: {
+      color: 'var(--board-light)',
+      fontSize: 'clamp(8px, 1.2vw, 12px)',
+      fontWeight: 500,
+      opacity: 0.8,
+    },
+    lightSquareNotationStyle: {
+      color: 'var(--board-dark)',
+      fontSize: 'clamp(8px, 1.2vw, 12px)',
+      fontWeight: 500,
+      opacity: 0.8,
+    },
     squareStyles,
 
-    onPieceDrop: ({ sourceSquare, targetSquare }) => {
+    onPieceDrop: ({ piece, sourceSquare, targetSquare }) => {
       // Bugfix #8: clear selected square immediately after drag-and-drop,
       // instead of waiting for the FEN-change effect (avoids visual flicker)
       const result = onDrop({ sourceSquare, targetSquare });
@@ -237,12 +321,32 @@ const ChessboardContainer = React.memo(({
         setSelectedSquare(null);
         setLegalMoves([]);
       }
+      // UX: jangan snap-back pawn saat promotion — biarkan piece tetap
+      // di target square meskipun parent return false (promotion pending).
+      // react-chessboard akan mengembalikan piece hanya jika return false.
+      // Tapi untuk promotion, kita override: tetap return undefined supaya
+      // piece tidak snap-back. Saat user memilih piece, parent akan update FEN.
+      if (result === false && piece) {
+        const isWhitePawnPromotion = piece === 'wP' && targetSquare[1] === '8';
+        const isBlackPawnPromotion = piece === 'bP' && targetSquare[1] === '1';
+        if (isWhitePawnPromotion || isBlackPawnPromotion) {
+          setSelectedSquare(null);
+          setLegalMoves([]);
+          return; // undefined = piece stays on target square
+        }
+      }
       return result;
     },
 
-    onSquareClick: ({ square }) => handleSquareClick(square),
+    onSquareClick: ({ square }) => handleSquareClickRef.current(square),
+  // handleSquareClick sengaja tidak dimasukkan ke dependency array karena
+  // kita menggunakan ref (handleSquareClickRef) untuk selalu membaca versi
+  // terbaru tanpa perlu re-run useMemo. Ini menjaga performa boardOptions
+  // agar tidak direkomputasi pada setiap interaksi pengguna (klik kotak).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     fen,
+    effectiveOrientation,
     boardOrientation,
     isSpectator,
     lastMove,
@@ -252,7 +356,7 @@ const ChessboardContainer = React.memo(({
   ]);
 
   return (
-    <div className="chessboard-container-wrapper" data-testid="chessboard">
+    <div className={`chessboard-container-wrapper${flipPhase ? ` flip-${flipPhase}` : ''}`} data-testid="chessboard">
       <div className="chessboard-container">
         <Chessboard options={boardOptions} />
       </div>

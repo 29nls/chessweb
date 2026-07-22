@@ -10,7 +10,7 @@ import { useGameHistory } from '../hooks/useGameHistory';
 import { useLoadingSequence } from '../hooks/useLoadingSequence';
 import { AnalysisSkeleton, BoardSkeleton, PanelSkeleton, MoveHistorySkeleton } from '../components/SkeletonLoader';
 import ErrorBoundary from '../ErrorBoundary';
-import { playMoveSound, findCheckedKingSquare } from '../lib/sound';
+import { playMoveSound, findCheckedKingSquare, setMuted } from '../lib/sound';
 import OpeningExplorer from '../components/OpeningExplorer';
 import GameReview from '../components/GameReview';
 import { buildPgnWithNag } from '../MoveClassification';
@@ -56,6 +56,10 @@ export default function AnalysisPage() {
     Date: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
     Round: '?', White: '?', Black: '?', Result: '*',
   });
+
+  // Sound toggle
+  const [isMuted, setIsMuted] = useState(false);
+  useEffect(() => { setMuted(isMuted); }, [isMuted]);
 
   // Engine settings
   const [movetime, setMovetime] = useState(1000);
@@ -502,6 +506,8 @@ export default function AnalysisPage() {
             showArrow={showArrow}
             onShowArrowChange={setShowArrow}
             onKeyboardShortcuts={() => setShowShortcutGuide(true)}
+            isMuted={isMuted}
+            onMuteChange={setIsMuted}
           />
         </Suspense>
 

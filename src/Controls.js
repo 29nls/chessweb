@@ -12,6 +12,8 @@ import {
   Eye,
   Cpu,
   Zap,
+  Volume2,
+  VolumeX,
 } from 'react-feather';
 
 const ENGINE_PRESETS = [
@@ -69,6 +71,8 @@ const Controls = ({
   showArrow = true,
   onShowArrowChange,
   onKeyboardShortcuts,
+  isMuted = false,
+  onMuteChange,
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
@@ -163,6 +167,14 @@ const Controls = ({
           checked={showArrow}
           onChange={(e) => onShowArrowChange(e.target.checked)}
         />
+        <div className="toggle-switch">
+          <label>
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            <span style={{ marginLeft: 6 }}>{isMuted ? 'Muted' : 'Sound'}</span>
+            <input type="checkbox" checked={!isMuted} onChange={(e) => onMuteChange(!e.target.checked)} />
+            <span className="slider" aria-hidden="true"></span>
+          </label>
+        </div>
         <IconButton onClick={onKeyboardShortcuts} icon={<Zap size={18} />} text="Shortcuts" />
       </Section>
 

@@ -90,7 +90,47 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  opacity: 0;
+  opacity: 1;
+  perspective: 800px;
+}
+
+/* 3D card-flip animation for board orientation change */
+.chessboard-container-wrapper.flip-flip-out {
+  animation: board-flip-out 0.2s ease-in forwards;
+}
+
+.chessboard-container-wrapper.flip-flip-out .chessboard-container {
+  backface-visibility: hidden;
+}
+
+.chessboard-container-wrapper.flip-flip-in {
+  animation: board-flip-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.chessboard-container-wrapper.flip-flip-in .chessboard-container {
+  backface-visibility: hidden;
+}
+
+@keyframes board-flip-out {
+  0% {
+    transform: perspective(800px) rotateY(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(800px) rotateY(-90deg);
+    opacity: 0.2;
+  }
+}
+
+@keyframes board-flip-in {
+  0% {
+    transform: perspective(800px) rotateY(90deg);
+    opacity: 0.2;
+  }
+  100% {
+    transform: perspective(800px) rotateY(0deg);
+    opacity: 1;
+  }
 }
 
 .chessboard-container {
@@ -1037,9 +1077,69 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
+/* ===== Chess Piece Move Animations ===== */
+
+/* Source square: brief departure flash — piece has left */
+@keyframes move-departure {
+  0% {
+    background: rgba(155, 199, 0, 0.7);
+    transform: scale(1);
+  }
+  40% {
+    background: rgba(155, 199, 0, 0.3);
+    transform: scale(0.92);
+  }
+  100% {
+    background: rgba(155, 199, 0, 0.41);
+    transform: scale(1);
+  }
+}
+
+/* Target square: arrival bounce — piece has landed */
+@keyframes move-arrival {
+  0% {
+    background: rgba(155, 199, 0, 0.15);
+    box-shadow: inset 0 0 0 0 rgba(155, 199, 0, 0);
+  }
+  30% {
+    background: rgba(155, 199, 0, 0.7);
+    box-shadow: inset 0 0 20px 4px rgba(155, 199, 0, 0.25);
+  }
+  60% {
+    background: rgba(155, 199, 0, 0.5);
+    box-shadow: inset 0 0 10px 2px rgba(155, 199, 0, 0.1);
+    transform: scale(1.03);
+  }
+  100% {
+    background: rgba(155, 199, 0, 0.41);
+    box-shadow: inset 0 0 0 0 rgba(155, 199, 0, 0);
+    transform: scale(1);
+  }
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .page-enter {
     animation: none;
+  }
+
+  @keyframes move-departure {
+    0% { background: rgba(155, 199, 0, 0.41); }
+    100% { background: rgba(155, 199, 0, 0.41); }
+  }
+
+  @keyframes move-arrival {
+    0% { background: rgba(155, 199, 0, 0.41); }
+    100% { background: rgba(155, 199, 0, 0.41); }
+  }
+
+  @keyframes board-flip-out {
+    0% { transform: none; opacity: 1; }
+    100% { transform: none; opacity: 1; }
+  }
+
+  @keyframes board-flip-in {
+    0% { transform: none; opacity: 1; }
+    100% { transform: none; opacity: 1; }
   }
 }

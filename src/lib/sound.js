@@ -1,6 +1,11 @@
 const audioCache = {};
 const failedCache = new Set();
 
+// Global mute state — bisa di-toggle dari Controls
+let _muted = false;
+export function setMuted(muted) { _muted = muted; }
+export function isMuted() { return _muted; }
+
 const FILES = {
   move: '/sound/move-self.ogg',
   capture: '/sound/capture.ogg',
@@ -26,6 +31,7 @@ function ensureInteractionRetry() {
 }
 
 export function playSound(name) {
+  if (_muted) return;
   if (failedCache.has(name)) {
     ensureInteractionRetry();
     return;
@@ -53,6 +59,14 @@ export function playSound(name) {
 export function playMoveSound(move, game) {
   if (!move) return;
 
+  // BUGFIX: play check sound BEFORE game-over check, karena
+  // checkmate juga menghasilkan isCheck() = true, tapi kita
+  // mau check sound tetap ter-play meskipun game over.
+  const isCheck = game && game.isCheck();
+  if (isCheck) {
+    setTimeout(() => playSound('check'), 120);
+  }
+
   if (game && game.isGameOver()) {
     playSound('gameEnd');
     return;
@@ -66,10 +80,6 @@ export function playMoveSound(move, game) {
   else if (isCapture) playSound('capture');
   else if (isPromotion) playSound('promote');
   else playSound('move');
-
-  if (game && game.isCheck()) {
-    setTimeout(() => playSound('check'), 150);
-  }
 }
 
 export function findCheckedKingSquare(game) {

@@ -116,6 +116,8 @@ jest.mock('../components/GameReview', () => (props) => (
 jest.mock('../lib/sound', () => ({
   playMoveSound: () => {},
   findCheckedKingSquare: () => null,
+  setMuted: () => {},
+  isMuted: () => false,
 }));
 
 jest.mock('../lib/share', () => ({

@@ -6,6 +6,77 @@
   max-height: 400px;
 }
 
+/* ── Search / Filter Bar ── */
+.move-search-wrapper {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.move-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.82em;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.move-search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.move-search-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(93, 173, 226, 0.15);
+}
+
+.move-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.move-search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.move-search-clear:hover {
+  opacity: 1;
+  background: var(--bg-tertiary);
+}
+
+.move-search-count {
+  font-size: 0.72em;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  text-align: right;
+  opacity: 0.7;
+}
+
 .move-history-title {
   font-size: 1em;
   font-weight: 600;
