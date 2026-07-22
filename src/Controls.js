@@ -11,6 +11,7 @@ import {
   User,
   Eye,
   Cpu,
+  Zap,
 } from 'react-feather';
 
 const ENGINE_PRESETS = [
@@ -67,6 +68,7 @@ const Controls = ({
   onMultiPvChange,
   showArrow = true,
   onShowArrowChange,
+  onKeyboardShortcuts,
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
@@ -161,6 +163,7 @@ const Controls = ({
           checked={showArrow}
           onChange={(e) => onShowArrowChange(e.target.checked)}
         />
+        <IconButton onClick={onKeyboardShortcuts} icon={<Zap size={18} />} text="Shortcuts" />
       </Section>
 
       <Section title="Engine" icon={<Cpu size={20} />}>

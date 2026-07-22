@@ -21,6 +21,17 @@ let restartTimer = null;
 const outputListeners = new Set();
 const readyListeners = new Set();
 
+// ── Info throttling ──────────────────────────────────────
+// Stockfish emits hundreds of `info` lines per second during analysis.
+// Processing every line (parsing + React state updates) blocks the main
+// thread and triggers Chrome's '[Violation] 'message' handler took Nms'.
+// We throttle info emissions to ~80ms intervals (~12 updates/sec),
+// which is more than adequate for the evaluation display.
+let throttledInfo = null;
+let infoTimer = null;
+const INFO_THROTTLE_MS = 80;
+
+
 function parse(raw) {
   if (!raw) return;
   // The WASM worker emits each UCI line as a separate postMessage, usually
@@ -43,7 +54,7 @@ function handleLine(line) {
     const matchNps = line.match(/nps (\d+)/);
     const matchtbhits = line.match(/tbhits (\d+)/);
     const matchMultiPv = line.match(/multipv (\d+)/);
-    emit({
+    emitInfo({
       type: 'info',
       raw: line,
       score: matchScore
@@ -57,6 +68,9 @@ function handleLine(line) {
       multipv: matchMultiPv ? parseInt(matchMultiPv[1], 10) : 1,
     });
   } else if (line.startsWith('bestmove')) {
+    // Flush any pending throttled info so the final evaluation is delivered
+    // before the bestmove is processed (critical for move classification).
+    flushPendingInfo();
     const move = line.split(' ')[1];
     emit({ type: 'bestmove', move });
   } else if (line === 'uciok' || line === 'readyok') {
@@ -69,6 +83,47 @@ function handleLine(line) {
 
 function emit(data) {
   outputListeners.forEach((cb) => cb(data));
+}
+
+/**
+ * Emit `info` data with throttling. The first info line in a burst fires
+ * immediately; subsequent lines within the throttle window are batched and
+ * the latest one is emitted when the window expires. This prevents React
+ * state-update storms from Stockfish's rapid analysis output.
+ *
+ * Non-info data (bestmove, uciok, etc.) is NOT throttled.
+ */
+function emitInfo(infoData) {
+  throttledInfo = infoData;
+
+  if (!infoTimer) {
+    // First info in a burst — emit immediately, then set throttle window
+    emit(throttledInfo);
+    infoTimer = setTimeout(() => {
+      infoTimer = null;
+      // If a newer info line arrived during throttle, emit it
+      if (throttledInfo && throttledInfo !== infoData) {
+        emit(throttledInfo);
+      }
+      throttledInfo = null;
+    }, INFO_THROTTLE_MS);
+  }
+}
+
+/**
+ * Force-flush any pending throttled info. Call before emitting
+ * bestmove or other critical messages so downstream code gets the
+ * final evaluation before the move is applied.
+ */
+function flushPendingInfo() {
+  if (infoTimer) {
+    clearTimeout(infoTimer);
+    infoTimer = null;
+  }
+  if (throttledInfo) {
+    emit(throttledInfo);
+    throttledInfo = null;
+  }
 }
 
 function start() {
@@ -87,6 +142,11 @@ function stop() {
   if (restartTimer) {
     clearTimeout(restartTimer);
     restartTimer = null;
+  }
+  if (infoTimer) {
+    clearTimeout(infoTimer);
+    infoTimer = null;
+    throttledInfo = null;
   }
   ready = false;
   // Bersihkan semua listeners untuk mencegah stale callback saat re-mount

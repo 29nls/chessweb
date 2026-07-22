@@ -1,6 +1,7 @@
 import React from 'react';
 import AccessibleDialog from '../AccessibleDialog';
 import { computeAccuracyReport, LABELS } from '../MoveClassification';
+import { GameReviewSkeleton } from './SkeletonLoader';
 import './GameReview.css';
 
 const LABEL_ORDER = ['Brilliant', 'Best', 'Great', 'Excellent', 'Good', 'Inaccuracy', 'Miss', 'Mistake', 'Blunder'];
@@ -54,7 +55,20 @@ const BreakdownCounts = ({ counts, sideLabel }) => {
 };
 
 const GameReview = ({ isOpen, onClose, onNewGame, classifications, moves, result }) => {
-  if (!classifications || classifications.length === 0) return null;
+  // Show skeleton while no classifications available yet, then render real content immediately
+  if (!classifications || classifications.length === 0) {
+    if (!isOpen) return null;
+    return (
+      <AccessibleDialog
+        isOpen={isOpen}
+        onClose={onClose}
+        labelledBy="game-review-title"
+        className="game-review-dialog"
+      >
+        <GameReviewSkeleton />
+      </AccessibleDialog>
+    );
+  }
 
   const report = computeAccuracyReport(classifications, moves);
   const isDraw = result?.winner === 'draw';

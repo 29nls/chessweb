@@ -40,6 +40,12 @@
   border-radius: 3px;
 }
 
+.move-row-header {
+  font-weight: 600;
+  font-size: 0.75em;
+  color: var(--text-secondary);
+}
+
 .move-row {
   display: grid;
   grid-template-columns: 36px 1fr 1fr;
@@ -49,10 +55,140 @@
   border-bottom: 1px solid var(--border-color);
   font-size: 0.85em;
   animation: fade-in-up 0.3s ease-out forwards;
+  transition: background-color 0.15s ease;
+  border-radius: 4px;
+}
+
+.move-row:hover {
+  background-color: var(--bg-tertiary);
+}
+
+/* ── Tree main row — has a left accent bar for the tree trunk ── */
+.tree-main-row {
+  position: relative;
+  padding-left: 4px;
+}
+
+.tree-main-row::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 10%;
+  bottom: 10%;
+  width: 2px;
+  background-color: var(--border-color);
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.tree-main-row.move-row-active::before {
+  background-color: var(--accent-primary);
+  opacity: 1;
+}
+
+.move-row-active {
+  background-color: rgba(93, 173, 226, 0.08) !important;
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 0;
+}
+
+.move-row-active .move-cell-clickable .move-san {
+  color: var(--accent-primary);
+  font-weight: 700;
 }
 
 .move-row:last-child {
   border-bottom: none;
+}
+
+/* ── Alternatives row — shows book branches as chips ── */
+.move-alternatives {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 0 6px 36px; /* Indent under the move number column */
+  border-bottom: 1px solid var(--border-color);
+  animation: fade-in-up 0.25s ease-out forwards;
+}
+
+/* Tree connector line from main row to alternatives */
+.alt-connector {
+  flex-shrink: 0;
+  width: 2px;
+  height: 100%;
+  min-height: 20px;
+  background-color: var(--border-color);
+  opacity: 0.3;
+  border-radius: 1px;
+  margin-right: 4px;
+}
+
+.alt-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.alt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: default;
+  transition: all 0.15s ease;
+  font-family: 'Segoe UI', monospace;
+}
+
+.alt-chip:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background-color: var(--bg-secondary);
+  transform: translateY(-1px);
+}
+
+.alt-move {
+  letter-spacing: 0.5px;
+}
+
+/* ── Opening label on the main line ── */
+.tree-opening-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  background: linear-gradient(135deg, rgba(93, 173, 226, 0.08), rgba(67, 160, 71, 0.08));
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.65em;
+  font-weight: 600;
+  color: var(--accent-primary);
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.tree-opening-label:hover {
+  border-color: var(--accent-primary);
+  max-width: 300px;
+}
+
+.tree-opening-eco {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding-left: 3px;
+  border-left: 1px solid var(--border-color);
 }
 
 .move-number {
@@ -68,12 +204,24 @@
   gap: 6px;
   padding: 2px 6px;
   border-radius: 4px;
-  transition: background-color 0.2s;
+  transition: all 0.15s ease;
   cursor: default;
+  overflow: hidden;
 }
 
-.move-cell:hover {
+.move-cell-clickable {
+  cursor: pointer;
+}
+
+.move-cell-clickable:hover {
   background-color: var(--bg-tertiary);
+  transform: translateX(2px);
+}
+
+.move-cell-clickable:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+  border-radius: 4px;
 }
 
 .move-san {
@@ -102,6 +250,22 @@
   font-style: italic;
   text-align: center;
   padding: 20px 0;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .move-row,
+  .move-alternatives {
+    animation: none;
+  }
+
+  .move-cell-clickable:hover {
+    transform: none;
+  }
+
+  .alt-chip:hover {
+    transform: none;
+  }
 }
 
 /* Responsive: Mobile */
@@ -133,5 +297,24 @@
   .empty-move {
     font-size: 0.75em;
     padding: 12px 0;
+  }
+
+  .move-alternatives {
+    padding: 1px 0 4px 30px;
+  }
+
+  .alt-chip {
+    font-size: 0.65em;
+    padding: 1px 6px;
+  }
+
+  .tree-opening-label {
+    font-size: 0.55em;
+    max-width: 100px;
+    padding: 0 4px;
+  }
+
+  .tree-opening-eco {
+    display: none;
   }
 }

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
+import { parseSupabaseError, logSupabaseError } from '../lib/supabaseErrors';
 
 // Generate a random 6-character alphanumeric code (uppercase)
 function generateCode() {
@@ -20,7 +21,8 @@ function getPlayerId() {
       localStorage.setItem('chessweb_player_id', id);
     }
     return id;
-  } catch {
+  } catch (err) {
+    console.warn('useOnlineGame: localStorage unavailable for player ID:', err);
     return 'player_' + Math.random().toString(36).substring(2, 10);
   }
 }
@@ -29,13 +31,17 @@ function getPlayerId() {
 function saveGameState(code, color, status) {
   try {
     localStorage.setItem('chessweb_active_game', JSON.stringify({ code, color, status, timestamp: Date.now() }));
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.warn('useOnlineGame: Failed to save game state:', err);
+  }
 }
 
 function clearGameState() {
   try {
     localStorage.removeItem('chessweb_active_game');
-  } catch { /* ignore */ }
+  } catch (err) {
+    console.warn('useOnlineGame: Failed to clear game state:', err);
+  }
 }
 
 function getSavedGameState() {
@@ -49,7 +55,8 @@ function getSavedGameState() {
       return null;
     }
     return state;
-  } catch {
+  } catch (err) {
+    console.warn('useOnlineGame: Failed to read saved game state:', err);
     return null;
   }
 }
@@ -395,12 +402,20 @@ export function useOnlineGame() {
           p_time_control_ms: timeMs || 0,
         });
         const claim = Array.isArray(data) ? data[0] : data;
-        if (claimError || !claim?.claimed) {
-          setError(claimError?.message || 'Could not create a game. Please try again.');
+        if (claimError) {
+          const parsed = parseSupabaseError(claimError);
+          logSupabaseError('createGame.claimError', claimError);
+          setError(parsed.friendly);
           return false;
         }
-      } catch (claimError) {
-        setError('Could not create a game. Please try again.');
+        if (!claim?.claimed) {
+          setError('Could not reserve a game slot. The server may be busy — please try again.');
+          return false;
+        }
+      } catch (rawError) {
+        const parsed = parseSupabaseError(rawError);
+        logSupabaseError('createGame.catch', rawError);
+        setError(parsed.friendly);
         return false;
       }
     }
@@ -456,7 +471,8 @@ export function useOnlineGame() {
         
         tempChannel.subscribe();
       });
-    } catch {
+    } catch (err) {
+      console.warn('useOnlineGame: Failed to check slot availability:', err);
       return true;
     }
   }, []);
@@ -478,7 +494,13 @@ export function useOnlineGame() {
           p_time_control_ms: 0,
         });
         const claim = Array.isArray(data) ? data[0] : data;
-        if (claimError || !claim?.claimed) {
+        if (claimError) {
+          const parsed = parseSupabaseError(claimError);
+          logSupabaseError('joinGame.claimError', claimError);
+          setError(parsed.friendly);
+          return false;
+        }
+        if (!claim?.claimed) {
           setError('This game already has two players. Try spectating instead.');
           return false;
         }
@@ -486,8 +508,10 @@ export function useOnlineGame() {
         setTimeControlMs(claim.time_control_ms || 0);
         setWhiteTime(claim.time_control_ms || 0);
         setBlackTime(claim.time_control_ms || 0);
-      } catch {
-        setError('Could not join the game. Please try again.');
+      } catch (rawError) {
+        const parsed = parseSupabaseError(rawError);
+        logSupabaseError('joinGame.catch', rawError);
+        setError(parsed.friendly);
         return false;
       }
     } else {
@@ -743,12 +767,16 @@ export function useOnlineGame() {
   }, [gameCode, playerColor]);
 
   // Leave the game and return to idle
-  const leaveGame = useCallback(() => {
+  const leaveGame = useCallback(async () => {
     if (supabase && gameCode && playerColor !== 'spectator') {
-      supabase.rpc('release_chess_game_slot', {
-        p_game_code: gameCode,
-        p_player_id: playerIdRef.current,
-      }).catch(() => {});
+      try {
+        await supabase.rpc('release_chess_game_slot', {
+          p_game_code: gameCode,
+          p_player_id: playerIdRef.current,
+        });
+      } catch (err) {
+        logSupabaseError('release_chess_game_slot', err);
+      }
     }
     cleanup();
     clearGameState();
@@ -834,7 +862,10 @@ export function useOnlineGame() {
     return () => cleanup();
   }, [cleanup]);
 
-  return {
+  // Bugfix #2: memoize return object to prevent cascading re-renders in OnlinePage.
+  // All callbacks are stable (wrapped in useCallback), so the object reference only
+  // changes when state values actually change.
+  return useMemo(() => ({
     // State
     gameStatus,
     gameCode,
@@ -884,5 +915,46 @@ export function useOnlineGame() {
     onDrawResponded,
     onChatMessage,
     onReaction,
-  };
+  }), [
+    gameStatus,
+    gameCode,
+    playerColor,
+    opponentConnected,
+    spectatorCount,
+    gameResult,
+    error,
+    timeControlMs,
+    whiteTime,
+    blackTime,
+    startClock,
+    stopClock,
+    sendClockSync,
+    setTimeControl,
+    setClockTimesFromSync,
+    createGame,
+    joinGame,
+    joinAsSpectator,
+    sendMove,
+    sendSyncState,
+    resign,
+    broadcastGameOver,
+    leaveGame,
+    sendTakebackRequest,
+    sendTakebackResponse,
+    offerDraw,
+    sendDrawResponse,
+    sendChatMessage,
+    sendReaction,
+    onMoveReceived,
+    onGameStart,
+    onClockSync,
+    onStateRequested,
+    onSyncStateReceived,
+    onTakebackRequested,
+    onTakebackResponded,
+    onDrawOffered,
+    onDrawResponded,
+    onChatMessage,
+    onReaction,
+  ]);
 }

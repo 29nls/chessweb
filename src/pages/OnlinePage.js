@@ -3,8 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
 import { useOnlineGame } from '../hooks/useOnlineGame';
+import { useLoadingSequence } from '../hooks/useLoadingSequence';
 import OnlineLobby, { OnlineStatusBar } from '../OnlineLobby';
-import { BoardSkeleton } from '../components/SkeletonLoader';
+import { BoardSkeleton, OnlineSkeleton } from '../components/SkeletonLoader';
+import ErrorBoundary from '../ErrorBoundary';
 import { playMoveSound, findCheckedKingSquare, playSound } from '../lib/sound';
 import { copyShareLink } from '../lib/share';
 import { saveGame } from '../lib/gameHistory';
@@ -27,6 +29,11 @@ export default function OnlinePage() {
   const [moveHistory, setMoveHistory] = useState([game.fen()]);
   const [historyPointer, setHistoryPointer] = useState(0);
 
+  const { isLoading, showSkeleton, stepIndex } = useLoadingSequence({
+    minLoadingMs: 200,
+    stepCount: 4,
+    stepTotalMs: 800,
+  });
   const [showLobby, setShowLobby] = useState(true);
 
   // Takeback & Draw modal states
@@ -241,7 +248,7 @@ export default function OnlinePage() {
               const lastMoveObj = tempGame.move(curMoves[newPointer - 1], { sloppy: true });
               if (lastMoveObj) setLastMove({ from: lastMoveObj.from, to: lastMoveObj.to });
               else setLastMove(null);
-            } catch { setLastMove(null); }
+            } catch (err) { console.warn('Failed to reconstruct last move for takeback:', err); setLastMove(null); }
           } else {
             setLastMove(null);
           }
@@ -312,17 +319,26 @@ export default function OnlinePage() {
   }, [online]);
 
   // ─── Online: Clock Sync — correct drift when opponent sends sync ───
+  // Store whiteTime/blackTime in refs to avoid stale closure in the onClockSync callback
+  const whiteTimeRef = useRef(online.whiteTime);
+  const blackTimeRef = useRef(online.blackTime);
+  useEffect(() => { whiteTimeRef.current = online.whiteTime; }, [online.whiteTime]);
+  useEffect(() => { blackTimeRef.current = online.blackTime; }, [online.blackTime]);
+
   useEffect(() => {
     online.onClockSync((wt, bt) => {
       // Update refs for continuous sync
       whiteTimeRefForSync.current = wt;
       blackTimeRefForSync.current = bt;
+      // Read latest white/black time from refs (fresh, not stale closure)
+      const currentWt = whiteTimeRef.current;
+      const currentBt = blackTimeRef.current;
       // Correct drift if it exceeds 2 seconds (avoids jitter from minor divergence)
-      if (Math.abs(wt - online.whiteTime) > 2000) {
-        online.setClockTimesFromSync(wt, online.blackTime);
+      if (Math.abs(wt - currentWt) > 2000) {
+        online.setClockTimesFromSync(wt, currentBt);
       }
-      if (Math.abs(bt - online.blackTime) > 2000) {
-        online.setClockTimesFromSync(online.whiteTime, bt);
+      if (Math.abs(bt - currentBt) > 2000) {
+        online.setClockTimesFromSync(currentWt, bt);
       }
     });
   }, [online]);
@@ -343,7 +359,7 @@ export default function OnlinePage() {
               const g = new Chess();
               movesRef.current.forEach(m => g.move(m, { sloppy: true }));
               return g.pgn();
-            } catch { return ''; }
+            } catch (err) { console.warn('Failed to build PGN from moves for save:', err); return ''; }
           })(),
           result: online.gameResult,
           moves: movesRef.current,
@@ -395,7 +411,7 @@ export default function OnlinePage() {
     }, 3000);
   }, [online]);
 
-  const onDrop = ({ sourceSquare, targetSquare }) => {
+  const onDrop = useCallback(({ sourceSquare, targetSquare }) => {
     if (online.gameStatus !== 'playing') return false;
 
     if (online.playerColor === 'spectator') {
@@ -463,7 +479,7 @@ export default function OnlinePage() {
     }
 
     return true;
-  };
+  }, [fen, moveHistory, historyPointer, moves, online, switchClockAfterMove]);
 
   const handleCloseLobby = () => {
     if (online.gameStatus === 'idle') {
@@ -486,6 +502,13 @@ export default function OnlinePage() {
     : false;
 
   return (
+    <div className="sk-transition-wrap">
+      {showSkeleton && (
+        <div className={`sk-fade-layer ${!isLoading ? 'sk-fade-out' : ''}`}>
+          <OnlineSkeleton stepIndex={stepIndex} />
+        </div>
+      )}
+      <div className={`sk-entering-content ${!isLoading ? 'sk-crossfade' : ''}`}>
     <div className="App">
       <main className="App-body online-mode">
         <div style={{ gridArea: 'chessboard' }}>
@@ -544,6 +567,7 @@ export default function OnlinePage() {
             onSendReaction={handleSendReaction}
           />
           <Suspense fallback={<BoardSkeleton />}>
+            <ErrorBoundary componentName="Online Chessboard">
             <ChessboardContainer
               fen={fen}
               onDrop={onDrop}
@@ -556,6 +580,7 @@ export default function OnlinePage() {
               isSpectator={online.playerColor === 'spectator'}
               checkedKingSquare={checkedKingSquare}
             />
+            </ErrorBoundary>
           </Suspense>
         </div>
       </main>
@@ -584,11 +609,14 @@ export default function OnlinePage() {
             const ok = await copyShareLink(pgn, online.gameResult);
             if (ok) toast.success('Replay link copied!');
             else toast.error('Failed to copy replay link');
-          } catch {
+          } catch (err) {
+            console.error('Failed to generate replay link:', err);
             toast.error('Failed to generate replay link');
           }
         }}
       />
+    </div>
+      </div>
     </div>
   );
 }

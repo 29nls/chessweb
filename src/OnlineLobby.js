@@ -50,15 +50,17 @@ const OnlineLobby = ({
   if (!isOpen && gameStatus === 'idle') return null;
 
   const handleJoin = () => {
-    if (joinCode.trim()) {
-      onJoinGame(joinCode.trim());
+    if (!joinCode.trim()) {
+      toast.warning('Please enter a game code first.');
+      return;
     }
+    onJoinGame(joinCode.trim());
   };
 
   const handleCreateGame = async () => {
     const created = await onCreateGame(selectedTimeMs);
     if (created) return;
-    toast.error('Could not reserve a game slot. Please try again.');
+    // Error sudah di-set oleh useOnlineGame dan ditampilkan di lobby-error
   };
 
   const handleKeyDown = (e) => {
@@ -106,7 +108,6 @@ const OnlineLobby = ({
               <button
                 className="game-result-btn-share"
                 onClick={onShareReplay}
-                style={{ background: 'transparent', color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)' }}
               >
                 Share Replay
               </button>
@@ -163,8 +164,6 @@ const OnlineLobby = ({
             </button>
           </div>
 
-          {error && <div className="lobby-error">{error}</div>}
-
           {activeTab === 'play' && (
             <div role="tabpanel" id="lobby-panel-play" aria-labelledby="lobby-tab-play">
             {gameStatus === 'idle' ? (
@@ -185,6 +184,13 @@ const OnlineLobby = ({
                     ))}
                   </div>
                 </div>
+
+                {/* Create error inline */}
+                {error && gameStatus === 'idle' && (
+                  <div className="lobby-error" role="alert" aria-live="assertive">
+                    {error}
+                  </div>
+                )}
 
                 <button className="lobby-btn-create" onClick={handleCreateGame}>
                   <Wifi size={20} />
@@ -228,11 +234,14 @@ const OnlineLobby = ({
                   <span className="dot"></span>
                   <span className="dot"></span>
                   <span className="dot"></span>
-                  <span style={{ marginLeft: 6 }}>Waiting for opponent...</span>
+                  <span className="lobby-waiting-text">Waiting for opponent...</span>
                 </div>
 
-                <div style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
-                  You play as <strong style={{ color: playerColor === 'white' ? '#f0f0f0' : '#333', background: playerColor === 'white' ? '#333' : '#f0f0f0', padding: '2px 8px', borderRadius: 4 }}>{playerColor}</strong>
+                <div className="lobby-player-color">
+                  You play as{' '}
+                  <strong className={`lobby-color-badge ${playerColor === 'white' ? 'color-white' : 'color-black'}`}>
+                    {playerColor}
+                  </strong>
                 </div>
 
                 <button className="lobby-btn-cancel" onClick={onLeaveGame}>
@@ -245,11 +254,19 @@ const OnlineLobby = ({
 
           {activeTab === 'spectate' && (
             <div role="tabpanel" id="lobby-panel-spectate" aria-labelledby="lobby-tab-spectate">
+            {/* Spectate error inline */}
+            {error && (
+              <div className="lobby-error lobby-error-spectate" role="alert" aria-live="assertive">
+                {error}
+              </div>
+            )}
             <div className="spectate-list-container">
               <p className="spectate-subtitle">Live Games</p>
               {activeGames.length === 0 ? (
                 <div className="spectate-empty">
-                  <Eye size={40} style={{ opacity: 0.2, marginBottom: 10 }} />
+                  <div className="spectate-empty-icon" aria-hidden="true">
+                    <Eye size={40} />
+                  </div>
                   <p>No active games right now.</p>
                 </div>
               ) : (
@@ -271,7 +288,7 @@ const OnlineLobby = ({
                         </span>
                       </div>
                       <div className="spectate-players">
-                        <Users size={14} style={{ marginRight: 4 }} aria-hidden="true" />
+                        <Users size={14} className="spectate-players-icon" aria-hidden="true" />
                         {game.players} / 2
                       </div>
                     </div>
@@ -308,6 +325,12 @@ const ChatPanel = ({
   const [inputText, setInputText] = useState('');
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Format timestamp for messages
+  const formatTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   // Auto-scroll to newest message
   useEffect(() => {
@@ -346,10 +369,13 @@ const ChatPanel = ({
               </span>
             ) : (
               <>
-                <span className="chat-msg-sender" style={{ color: msg.senderColor === 'white' ? 'var(--text-primary)' : 'var(--accent-primary)' }}>
+                <span className={`chat-msg-sender ${msg.senderColor === 'white' ? 'sender-white' : 'sender-black'}`}>
                   {msg.sender}
                 </span>
-                <span className="chat-msg-text">{msg.text}</span>
+                <span className="chat-msg-text">
+                  {msg.text}
+                  <span className="chat-msg-time">{formatTime()}</span>
+                </span>
               </>
             )}
           </div>
@@ -485,15 +511,15 @@ export const OnlineStatusBar = ({
             <span aria-live="polite" aria-atomic="true">
               {isMyTurn ? '⚡ Your turn' : "⏳ Opponent's turn"}
             </span>
-            <span style={{ margin: '0 4px', color: 'var(--border-color)' }} aria-hidden="true">|</span>
+            <span className="status-separator" aria-hidden="true">|</span>
             <span className={`online-status-dot ${connectionQuality === 'connected' ? 'connected' : 'reconnecting'}`} aria-hidden="true" />
-            <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
+            <span className="connection-text">
               {connectionQuality === 'connected' ? 'Connected' : '● Disconnected'}
             </span>
             {spectatorCount > 0 && (
               <>
-                <span style={{ margin: '0 4px', color: 'var(--border-color)' }} aria-hidden="true">|</span>
-                <span style={{ fontSize: '0.85em', color: 'var(--text-secondary)' }}>
+                <span className="status-separator" aria-hidden="true">|</span>
+                <span className="spectator-count-text">
                   👁️ {spectatorCount} {spectatorCount === 1 ? 'spectator' : 'spectators'}
                 </span>
               </>

@@ -2,6 +2,9 @@ import React, { useState, useCallback, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
 import { ChevronRight, RotateCcw, Shuffle, Star, Filter } from 'react-feather';
+import { useLoadingSequence } from '../hooks/useLoadingSequence';
+import { PuzzleSkeleton } from '../components/SkeletonLoader';
+import ErrorBoundary from '../ErrorBoundary';
 import ChessboardContainer from '../ChessboardContainer';
 import { getRandomPuzzle } from '../data/puzzles';
 import { playMoveSound } from '../lib/sound';
@@ -20,10 +23,16 @@ const DIFFICULTIES = [
  * Loads FEN puzzles, validates moves against the solution line.
  */
 export default function PuzzlePage() {
+  const { isLoading, showSkeleton, stepIndex } = useLoadingSequence({
+    minLoadingMs: 200,
+    stepCount: 4,
+    stepTotalMs: 800,
+  });
+
   // Puzzle state
   const [currentPuzzle, setCurrentPuzzle] = useState(null);
   const [game, setGame] = useState(new Chess());
-  const [fen, setFen] = useState('start');
+  const [fen, setFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
   const [solutionIndex, setSolutionIndex] = useState(0); // how many solution moves applied
   const [puzzleStarted, setPuzzleStarted] = useState(false);
   const [puzzleSolved, setPuzzleSolved] = useState(false);
@@ -38,6 +47,24 @@ export default function PuzzlePage() {
 
   const gameRef = useRef(game);
   const fenRef = useRef(fen);
+  const currentPuzzleRef = useRef(currentPuzzle);
+  const pendingTimeoutRef = useRef(null);
+  const isWaitingForOpponentRef = useRef(false); // Lock to prevent user clicks during opponent response delay
+
+  // Sync refs with state to avoid stale closures in setTimeout
+  React.useEffect(() => {
+    currentPuzzleRef.current = currentPuzzle;
+  }, [currentPuzzle]);
+
+  // Cleanup pending timeout on unmount or tab switch
+  React.useEffect(() => {
+    return () => {
+      if (pendingTimeoutRef.current) {
+        clearTimeout(pendingTimeoutRef.current);
+        pendingTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const updateGame = useCallback((newGame) => {
     gameRef.current = newGame;
@@ -47,11 +74,33 @@ export default function PuzzlePage() {
     setFen(newFen);
   }, []);
 
+  /** Schedule opponent response with cleanup support.
+   *  Also sets isWaitingForOpponentRef to block user input during the delay. */
+  const scheduleOpponentResponse = useCallback((callback, delayMs) => {
+    // Clear any existing timeout
+    if (pendingTimeoutRef.current) {
+      clearTimeout(pendingTimeoutRef.current);
+    }
+    isWaitingForOpponentRef.current = true;
+    pendingTimeoutRef.current = setTimeout(() => {
+      pendingTimeoutRef.current = null;
+      isWaitingForOpponentRef.current = false;
+      callback();
+    }, delayMs);
+  }, []);
+
   /**
    * Load a specific puzzle on the board.
    */
   const loadPuzzle = useCallback((puzzle) => {
+    // Cancel any pending opponent response before switching puzzles
+    if (pendingTimeoutRef.current) {
+      clearTimeout(pendingTimeoutRef.current);
+      pendingTimeoutRef.current = null;
+    }
+    isWaitingForOpponentRef.current = false;
     setCurrentPuzzle(puzzle);
+    currentPuzzleRef.current = puzzle;
     setSolutionIndex(0);
     setPuzzleSolved(false);
     setPuzzleStarted(false);
@@ -69,9 +118,7 @@ export default function PuzzlePage() {
    * Load a random puzzle to start.
    */
   const loadRandomPuzzle = useCallback(() => {
-    const filters = difficulty.key === 'all'
-      ? { minRating: difficulty.minRating, maxRating: difficulty.maxRating }
-      : { minRating: difficulty.minRating, maxRating: difficulty.maxRating };
+    const filters = { minRating: difficulty.minRating, maxRating: difficulty.maxRating };
     const puzzle = getRandomPuzzle(filters);
     loadPuzzle(puzzle);
   }, [loadPuzzle, difficulty]);
@@ -88,8 +135,14 @@ export default function PuzzlePage() {
 
   /**
    * Apply opponent's response from the solution.
+   * Uses currentPuzzleRef to guard against stale closures.
    */
   const applyOpponentResponse = useCallback((g, puzzle, index) => {
+    // Guard: if the puzzle has changed since this callback was scheduled, bail out
+    if (puzzle.id !== currentPuzzleRef.current?.id) {
+      return;
+    }
+
     if (index >= puzzle.moves.length) {
       // no more opponent moves - puzzle complete
       setPuzzleSolved(true);
@@ -117,6 +170,12 @@ export default function PuzzlePage() {
    */
   const handleMove = useCallback((from, to, promotion = 'q') => {
     if (!currentPuzzle || puzzleSolved) return false;
+
+    // Lock out user moves while opponent response is pending (race condition guard)
+    if (isWaitingForOpponentRef.current) {
+      toast.info('Wait for opponent response...');
+      return false;
+    }
 
     const g = gameRef.current;
     const moveResult = g.move({ from, to, promotion });
@@ -147,8 +206,9 @@ export default function PuzzlePage() {
       } else {
         // Apply opponent's response
         // Use setTimeout so React updates before the opponent's move
-        setTimeout(() => {
-          applyOpponentResponse(g, currentPuzzle, newIndex);
+        // Use scheduleOpponentResponse for cleanup support to avoid stale closures
+        scheduleOpponentResponse(() => {
+          applyOpponentResponse(g, currentPuzzleRef.current, newIndex);
         }, 400);
       }
     } else {
@@ -164,7 +224,7 @@ export default function PuzzlePage() {
     }
 
     return true;
-  }, [currentPuzzle, puzzleSolved, solutionIndex, updateGame, applyOpponentResponse, hintsUsed]);
+  }, [currentPuzzle, puzzleSolved, solutionIndex, updateGame, applyOpponentResponse, hintsUsed, scheduleOpponentResponse]);
 
   const onDrop = useCallback(({ sourceSquare, targetSquare }) => {
     if (!puzzleStarted) {
@@ -209,9 +269,7 @@ export default function PuzzlePage() {
    * Skip to the next puzzle.
    */
   const handleNextPuzzle = useCallback(() => {
-    const filters = difficulty.key === 'all'
-      ? { minRating: difficulty.minRating, maxRating: difficulty.maxRating }
-      : { minRating: difficulty.minRating, maxRating: difficulty.maxRating };
+    const filters = { minRating: difficulty.minRating, maxRating: difficulty.maxRating };
     const puzzle = getRandomPuzzle(filters);
     loadPuzzle(puzzle);
     setPuzzleStarted(true);
@@ -222,9 +280,7 @@ export default function PuzzlePage() {
    */
   const handleDifficultyChange = useCallback((diff) => {
     setDifficulty(diff);
-    const filters = diff.key === 'all'
-      ? { minRating: diff.minRating, maxRating: diff.maxRating }
-      : { minRating: diff.minRating, maxRating: diff.maxRating };
+    const filters = { minRating: diff.minRating, maxRating: diff.maxRating };
     const puzzle = getRandomPuzzle(filters);
     loadPuzzle(puzzle);
     setPuzzleStarted(true);
@@ -270,6 +326,13 @@ export default function PuzzlePage() {
   const userColor = boardOrientation;
 
   return (
+    <div className="sk-transition-wrap">
+      {showSkeleton && (
+        <div className={`sk-fade-layer ${!isLoading ? 'sk-fade-out' : ''}`}>
+          <PuzzleSkeleton stepIndex={stepIndex} />
+        </div>
+      )}
+      <div className={`sk-entering-content ${!isLoading ? 'sk-crossfade' : ''}`}>
     <div className="App">
       <main className="App-body puzzle-mode">
         {/* Left panel: Puzzle Info */}
@@ -403,6 +466,7 @@ export default function PuzzlePage() {
         {/* Center: Chessboard */}
         <div style={{ gridArea: 'chessboard' }}>
           <div className="puzzle-board-wrapper">
+            <ErrorBoundary componentName="Puzzle Chessboard">
             <ChessboardContainer
               fen={fen}
               onDrop={onDrop}
@@ -416,6 +480,7 @@ export default function PuzzlePage() {
               showArrow={true}
               customSquareStyles={customSquareStyles}
             />
+            </ErrorBoundary>
           </div>
         </div>
 
@@ -463,6 +528,8 @@ export default function PuzzlePage() {
           )}
         </div>
       </main>
+    </div>
+      </div>
     </div>
   );
 }

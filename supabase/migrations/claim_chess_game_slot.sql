@@ -19,7 +19,7 @@ CREATE OR REPLACE FUNCTION claim_chess_game_slot(
 )
 RETURNS TABLE(claimed BOOLEAN, time_control_ms INTEGER)
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -60,7 +60,7 @@ $$;
 CREATE OR REPLACE FUNCTION release_chess_game_slot(p_game_code TEXT, p_player_id TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN

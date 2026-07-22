@@ -33,3 +33,15 @@ global.ResizeObserver = class {
   unobserve() {}
   disconnect() {}
 };
+
+// jsdom does not implement IntersectionObserver, which LandingScreen uses
+// for animated counters and scroll-reveal effects.
+global.IntersectionObserver = class {
+  constructor(callback) {
+    this.callback = callback;
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() { return []; }
+};

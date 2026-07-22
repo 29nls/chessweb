@@ -58,8 +58,8 @@ export function decodeGameFromParams(params) {
   if (resultStr) {
     try {
       result = JSON.parse(resultStr);
-    } catch {
-      // Ignore invalid result data
+    } catch (err) {
+      console.warn('share: Failed to decode result from params:', err);
     }
   }
   return { pgn, result };
@@ -76,7 +76,8 @@ export async function copyShareLink(pgn, result) {
   try {
     await navigator.clipboard.writeText(url);
     return true;
-  } catch {
+  } catch (clipErr) {
+    console.warn('share: Clipboard API failed, trying execCommand fallback:', clipErr);
     // Fallback for older browsers or insecure contexts
     try {
       const textarea = document.createElement('textarea');
@@ -88,7 +89,8 @@ export async function copyShareLink(pgn, result) {
       document.execCommand('copy');
       document.body.removeChild(textarea);
       return true;
-    } catch {
+    } catch (fallbackErr) {
+      console.warn('share: execCommand clipboard fallback also failed:', fallbackErr);
       return false;
     }
   }

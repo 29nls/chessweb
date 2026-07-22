@@ -11,6 +11,12 @@
 
 .modal-dialog::backdrop {
   background: rgba(0, 0, 0, 0.7);
+  animation: modal-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-content {
@@ -22,6 +28,12 @@
   max-width: 500px;
   color: var(--text-primary);
   box-sizing: border-box;
+  animation: modal-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-slide-up {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .modal-header {
@@ -43,11 +55,12 @@
   font-size: 2em;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .modal-close-button:hover {
   color: var(--accent-primary);
+  transform: rotate(90deg);
 }
 
 .modal-body {

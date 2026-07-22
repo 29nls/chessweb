@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock } from 'react-feather';
+import { useLoadingSequence } from '../hooks/useLoadingSequence';
 import GameHistoryPanel from '../components/GameHistoryPanel';
+import { HistorySkeleton } from '../components/SkeletonLoader';
 import Modal from '../Modal';
 import './HistoryPage.css';
 
@@ -11,6 +13,16 @@ import './HistoryPage.css';
 export default function HistoryPage() {
   const navigate = useNavigate();
   const [replayPgn, setReplayPgn] = React.useState(null);
+  const { isLoading, showSkeleton, stepIndex, markReady } = useLoadingSequence({
+    manual: true, // wait for GameHistoryPanel data to load
+    stepCount: 4,
+    stepTotalMs: 1000,
+  });
+
+  // Natural loading: dismiss skeleton once GameHistoryPanel confirms data is loaded
+  const handleHistoryReady = useCallback(() => {
+    markReady();
+  }, [markReady]);
 
   const handleReplay = (game) => {
     if (game.pgn) {
@@ -22,8 +34,18 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="App">
-      <main className="App-body history-page-layout">
+    <div className="sk-transition-wrap">
+      {/* ── Skeleton overlay ── */}
+      {showSkeleton && (
+        <div className={`sk-fade-layer ${!isLoading ? 'sk-fade-out' : ''}`}>
+          <HistorySkeleton stepIndex={stepIndex} />
+        </div>
+      )}
+
+      {/* ── Real content ── */}
+      <div className={`sk-entering-content ${!isLoading ? 'sk-crossfade' : ''}`}>
+        <div className="App">
+          <main className="App-body history-page-layout">
         <div className="history-page">
           <header className="history-header">
             <button
@@ -44,7 +66,7 @@ export default function HistoryPage() {
             </div>
           </header>
 
-          <GameHistoryPanel onReplay={handleReplay} />
+          <GameHistoryPanel onReplay={handleReplay} onReady={handleHistoryReady} />
         </div>
       </main>
 
@@ -75,6 +97,8 @@ export default function HistoryPage() {
           </div>
         </Modal>
       )}
+    </div>
+      </div>
     </div>
   );
 }

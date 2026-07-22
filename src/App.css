@@ -43,7 +43,7 @@
   grid-template-columns: 260px 1fr 260px;
   grid-template-areas:
     "evaluation chessboard controls"
-    "movehistory movehistory movehistory";
+    "opening movehistory movehistory";
   gap: 25px;
   align-items: flex-start;
   width: 100%;
@@ -90,7 +90,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  
+  opacity: 0;
 }
 
 .chessboard-container {
@@ -157,12 +157,19 @@
   font-weight: 500;
   transition: all 0.2s ease;
   position: relative;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .icon-button:hover {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
   background-color: var(--bg-secondary);
+}
+
+.icon-button:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .icon-button:hover .shortcut-hint {
@@ -327,6 +334,10 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 4px 14px rgba(93, 173, 226, 0.35);
 }
 
+.button-primary:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
 .button-secondary {
   background-color: var(--bg-tertiary);
   color: var(--text-secondary);
@@ -337,6 +348,10 @@ input[type="range"]::-moz-range-thumb {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
   background-color: var(--bg-secondary);
+}
+
+.button-secondary:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 /* Promotion Dialog */
@@ -433,13 +448,17 @@ input[type="range"]::-moz-range-thumb {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  width: auto;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
 }
 
 .game-over-text {
   font-size: 1.3em;
   font-weight: 700;
   color: var(--text-primary);
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .game-over-banner::before {
@@ -458,22 +477,139 @@ input[type="range"]::-moz-range-thumb {
   min-width: 120px;
 }
 
-/* Responsive adjustments */
-@media (max-width: 1100px) {
+.banner-action-btn {
+  padding: 8px 20px !important;
+  font-size: 0.9em !important;
+}
+
+.banner-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.banner-action-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+/* ===== Panel entrance stagger animation ===== */
+/* Panels fade in with a slight delay based on content order */
+.evaluation-section {
+  animation: fade-in-up 0.5s ease-out 0s forwards;
+}
+
+.chessboard-container-wrapper {
+  animation: fade-in-up 0.5s ease-out 0.1s forwards;
+}
+
+.controls {
+  animation: fade-in-up 0.5s ease-out 0.2s forwards;
+}
+
+.opening-explorer {
+  animation: fade-in-up 0.5s ease-out 0.3s forwards;
+  opacity: 0;
+}
+
+.move-history-panel {
+  animation: fade-in-up 0.5s ease-out 0.4s forwards;
+}
+
+/* Responsive: Tablet (769px - 1100px) */
+@media (max-width: 1100px) and (min-width: 769px) {
+  .App {
+    padding: 20px;
+  }
+
   .App-body {
     grid-template-columns: 1fr;
     grid-template-areas:
       "chessboard"
       "evaluation"
+      "opening"
       "controls"
       "movehistory";
-    max-width: 600px;
+    max-width: 520px;
+    gap: 18px;
+  }
+
+  .chessboard-container {
+    max-width: 500px;
+  }
+
+  .evaluation-section {
+    max-width: 100%;
+  }
+
+  .control-section {
+    padding: 12px;
+  }
+
+  .controls {
+    gap: 16px;
   }
 }
 
+/* Responsive: Mobile (481px - 768px) */
+@media (max-width: 768px) {
+  .App {
+    padding: 16px;
+  }
+
+  .App-body {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "chessboard"
+      "evaluation"
+      "opening"
+      "controls"
+      "movehistory";
+    max-width: 600px;
+    gap: 16px;
+  }
+
+  .chessboard-container {
+    max-width: 100%;
+  }
+
+  .controls {
+    gap: 14px;
+  }
+
+  .control-section {
+    padding: 12px;
+  }
+
+  .button-grid {
+    gap: 8px;
+  }
+
+  .eval-bar-container {
+    height: 30px;
+  }
+
+  .main-evaluation h2 {
+    font-size: 2em;
+  }
+
+  .game-over-banner {
+    padding: 24px 20px;
+    width: calc(100vw - 48px);
+    max-width: 340px;
+  }
+
+  .game-over-text {
+    font-size: 1.1em;
+  }
+
+  .promotion-dialog {
+    width: 95%;
+    padding: 20px;
+  }
+}
+
+/* Responsive: Small Mobile (≤480px) */
 @media (max-width: 480px) {
   .App {
-    padding: 12px;
+    padding: 10px;
   }
 
   .App-body {
@@ -488,14 +624,25 @@ input[type="range"]::-moz-range-thumb {
     padding: 10px;
   }
 
+  .section-title {
+    font-size: 0.9em;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+  }
+
   .button-grid {
     grid-template-columns: 1fr 1fr;
     gap: 6px;
   }
 
   .icon-button {
-    padding: 8px;
-    font-size: 0.8em;
+    padding: 8px 6px;
+    font-size: 0.75em;
+    gap: 4px;
+  }
+
+  .icon-button span {
+    font-size: 0.85em;
   }
 
   .section-title {
@@ -544,6 +691,62 @@ input[type="range"]::-moz-range-thumb {
   .move-row {
     font-size: 0.75em;
   }
+
+  .game-over-banner {
+    padding: 20px 16px;
+    width: calc(100vw - 32px);
+    max-width: 300px;
+  }
+
+  .game-over-text {
+    font-size: 1em;
+  }
+
+  .shortcut-guide-card {
+    padding: 20px;
+  }
+
+  .shortcut-guide-key {
+    min-width: 28px;
+    font-size: 0.75em;
+    padding: 3px 8px;
+  }
+
+  .shortcut-guide-action {
+    font-size: 0.8em;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .App {
+    padding: 8px 16px;
+  }
+
+  .App-body {
+    gap: 10px;
+  }
+
+  .chessboard-container {
+    max-width: 50vh;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .game-over-banner {
+    padding: 16px;
+    max-width: 280px;
+  }
+
+  .eval-bar-container {
+    height: 20px;
+  }
+
+  .move-history-panel {
+    max-height: 150px;
+  }
 }
 
 /* Reset Confirmation Dialog */
@@ -589,4 +792,254 @@ input[type="range"]::-moz-range-thumb {
 
 .button-danger:active {
   transform: translateY(0);
+}
+
+/* ===== Keyboard Shortcuts Guide ===== */
+.shortcut-guide-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 28px 32px;
+  width: 90%;
+  max-width: 380px;
+  animation: lobby-slide-up 0.3s ease-out;
+}
+
+.shortcut-guide-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.2em;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 20px 0;
+}
+
+.shortcut-guide-title svg {
+  color: var(--accent-primary);
+}
+
+.shortcut-guide-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.shortcut-guide-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  transition: transform 0.15s ease;
+}
+
+.shortcut-guide-row:hover {
+  transform: translateX(4px);
+}
+
+.shortcut-guide-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: 'Inter', monospace;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: var(--accent-primary);
+  box-shadow: 0 1px 3px var(--shadow-color);
+  text-align: center;
+}
+
+.shortcut-guide-action {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.shortcut-guide-hint {
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0 0 16px;
+  font-style: italic;
+}
+
+.shortcut-guide-hint kbd {
+  display: inline;
+  padding: 1px 6px;
+  font-family: 'Inter', monospace;
+  font-size: 0.9em;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--accent-primary);
+}
+
+.shortcut-guide-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.shortcut-guide-actions button {
+  padding: 10px 32px;
+}
+
+/* ===== Header Navigation Styles ===== */
+
+.App-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.nav-back-btn {
+  height: 40px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+}
+
+.nav-back-btn:hover {
+  transform: translateX(-2px);
+}
+
+.nav-back-btn:active:not(:disabled) {
+  transform: translateX(-2px) scale(0.97);
+}
+
+.nav-theme-btn {
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.nav-theme-btn:hover {
+  transform: rotate(15deg);
+}
+
+.nav-theme-btn:active:not(:disabled) {
+  transform: rotate(15deg) scale(0.95);
+}
+
+/* ===== ErrorBoundary Fallback ===== */
+
+.error-boundary-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--danger-color);
+  border-radius: 10px;
+  text-align: center;
+  min-height: 200px;
+  animation: fade-in-up 0.3s ease-out forwards;
+}
+
+.eb-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+}
+
+.eb-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.eb-message {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+.eb-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--accent-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.eb-retry-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(93, 173, 226, 0.35);
+}
+
+.eb-retry-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+
+.eb-retry-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .error-boundary-fallback {
+    animation: none;
+  }
+}
+
+/* ===== Page Transitions ===== */
+
+/* Entry animation — fade in with slight upward slide */
+.page-enter {
+  animation: page-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center top;
+}
+
+@keyframes page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
 }

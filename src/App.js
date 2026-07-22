@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Analytics } from '@vercel/analytics/react';
@@ -14,17 +14,28 @@ import OnlinePage from './pages/OnlinePage';
 import PuzzlePage from './pages/PuzzlePage';
 import HistoryPage from './pages/HistoryPage';
 
+// ── AnimatedRoutes: triggers a CSS transition on every route change ──
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <div className="page-enter" key={location.pathname}>
+      <Routes location={location}>
+        <Route path="/" element={<LandingScreen />} />
+        <Route path="/analysis" element={<AnalysisPage />} />
+        <Route path="/online" element={<OnlinePage />} />
+        <Route path="/puzzles" element={<PuzzlePage />} />
+        <Route path="/history" element={<HistoryPage />} />
+      </Routes>
+    </div>
+  );
+};
+
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppLayout>
-        <Routes>
-          <Route path="/" element={<LandingScreen />} />
-          <Route path="/analysis" element={<AnalysisPage />} />
-          <Route path="/online" element={<OnlinePage />} />
-          <Route path="/puzzles" element={<PuzzlePage />} />
-          <Route path="/history" element={<HistoryPage />} />
-        </Routes>
+        <AnimatedRoutes />
       </AppLayout>
       <ToastContainer 
         position="bottom-right" 

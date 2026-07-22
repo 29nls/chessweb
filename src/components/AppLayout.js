@@ -28,28 +28,19 @@ const AppLayout = ({ children }) => {
   return (
     <div className="app-shell">
       <header className="App-header">
-        <nav className="App-header-nav" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <nav className="App-header-nav">
           {!isHome && (
             <button
               onClick={() => navigate('/')}
-              className="button-secondary"
-              style={{ height: '40px' }}
+              className="button-secondary nav-back-btn"
               aria-label="Back to home"
             >
-              ← Back to Home
+              <span aria-hidden="true">← </span>Back to Home
             </button>
           )}
           <button
             onClick={toggleTheme}
-            className="button-secondary"
-            style={{
-              height: '40px',
-              width: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginLeft: isHome ? 'auto' : 'auto',
-            }}
+            className="button-secondary nav-theme-btn"
             aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           >

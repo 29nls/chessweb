@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
+import { Zap } from 'react-feather';
 import Modal from '../Modal';
 import AccessibleDialog from '../AccessibleDialog';
 import MoveHistory from '../MoveHistory';
 import { useChessEngine } from '../hooks/useChessEngine';
 import { useGameHistory } from '../hooks/useGameHistory';
-import { BoardSkeleton, PanelSkeleton, MoveHistorySkeleton } from '../components/SkeletonLoader';
+import { useLoadingSequence } from '../hooks/useLoadingSequence';
+import { AnalysisSkeleton, BoardSkeleton, PanelSkeleton, MoveHistorySkeleton } from '../components/SkeletonLoader';
+import ErrorBoundary from '../ErrorBoundary';
 import { playMoveSound, findCheckedKingSquare } from '../lib/sound';
 import OpeningExplorer from '../components/OpeningExplorer';
 import GameReview from '../components/GameReview';
@@ -22,7 +25,11 @@ const Controls = React.lazy(() => import('../Controls'));
 export default function AnalysisPage() {
   const [boardOrientation, setBoardOrientation] = useState('white');
   const [userColor, setUserColor] = useState('white');
-  const [isLoading, setIsLoading] = useState(true);
+  const { isLoading, showSkeleton, stepIndex, markReady } = useLoadingSequence({
+    manual: true, // wait for Stockfish engine readiness
+    stepCount: 4,
+    stepTotalMs: 900,
+  });
   const [isDepthAnalysisEnabled, setIsDepthAnalysisEnabled] = useState(false);
   const [isAutoMoveEnabled, setIsAutoMoveEnabled] = useState(false);
   const [multiPv, setMultiPv] = useState(1);
@@ -127,11 +134,13 @@ export default function AnalysisPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Loading timer ─────────────────────────────────────────
+  // ── Natural loading: wait for engine + lazy components + PGN import ──
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1500);
+    if (!engine.engineReady) return;
+    // Give a small grace period for lazy Suspense components to settle, then mark ready
+    const timer = setTimeout(() => markReady(), 200);
     return () => clearTimeout(timer);
-  }, []);
+  }, [engine.engineReady, markReady]);
 
   // ── Auto-move ─────────────────────────────────────────────
   const makeAutoOpponentMove = useCallback(() => {
@@ -187,7 +196,7 @@ export default function AnalysisPage() {
     return true;
   }, [history, engine]);
 
-  const onDrop = ({ sourceSquare, targetSquare }) => {
+  const onDrop = useCallback(({ sourceSquare, targetSquare }) => {
     const gameCopy = new Chess(history.fen);
     const piece = gameCopy.get(sourceSquare);
 
@@ -200,7 +209,7 @@ export default function AnalysisPage() {
     }
 
     return executeMove(sourceSquare, targetSquare, 'q');
-  };
+  }, [history.fen, executeMove]);
 
   const handlePromotionChoice = useCallback((piece) => {
     if (!promotionPending) return;
@@ -264,14 +273,72 @@ export default function AnalysisPage() {
     setMultiPv(value);
   };
 
+  const jumpToMove = (moveIndex) => {
+    // Navigate to a specific move in the history
+    if (moveIndex >= 0 && moveIndex < history.moveHistory.length) {
+      history.jumpToMove(moveIndex, history.moveHistory, history.moves, engine.sendCommand);
+    }
+  };
+
+  /**
+   * Play a sequence of PV (principal variation) moves from the engine.
+   * Clicks on a PV move play all moves up to and including that index.
+   */
+  const playPvLine = useCallback((pvMoves, upToIndex) => {
+    if (!pvMoves || pvMoves.length === 0 || upToIndex < 0) return;
+
+    const movesToPlay = pvMoves.slice(0, upToIndex + 1);
+    const currentGame = new Chess(history.fen);
+    const moveResults = [];
+
+    for (const san of movesToPlay) {
+      try {
+        const result = currentGame.move(san, { sloppy: true });
+        if (result) {
+          moveResults.push(result);
+          // Only play sound for the first move to avoid cacophony
+          if (moveResults.length === 1) playMoveSound(result, currentGame);
+        } else {
+          break;
+        }
+      } catch (err) {
+        console.warn('playPvLine: Invalid PV move', san, err);
+        break;
+      }
+    }
+
+    if (moveResults.length === 0) return;
+
+    // Batch apply all moves at once via the sequence function
+    history.applyMoveSequence(
+      currentGame,
+      moveResults,
+      history.historyPointer,
+      history.moves,
+      history.moveHistory,
+      engine.sendCommand
+    );
+  }, [history, engine]);
+
   const flipBoard = () => setBoardOrientation((p) => (p === 'white' ? 'black' : 'white'));
 
   const checkedKingSquare = findCheckedKingSquare(history.game);
 
+  // ── Shortcut Guide Modal ──────────────────────────────────
+  const [showShortcutGuide, setShowShortcutGuide] = useState(false);
+
+  const SHORTCUTS = [
+    { key: '←', action: 'Undo last move' },
+    { key: '→', action: 'Redo next move' },
+    { key: 'R', action: 'Reset / New game' },
+    { key: 'F', action: 'Flip board orientation' },
+    { key: 'Click move', action: 'Jump to position in move history' },
+  ];
+
   // ── Keyboard Shortcuts ────────────────────────────────────
   const keyHandlers = useRef({});
   const modalStateRef = useRef(false);
-  modalStateRef.current = showFenModal || showPgnModal || showResetConfirm || promotionPending !== null;
+  modalStateRef.current = showFenModal || showPgnModal || showResetConfirm || promotionPending !== null || showShortcutGuide;
   keyHandlers.current = { undoMove, redoMove, requestReset, flipBoard };
 
   useEffect(() => {
@@ -286,6 +353,7 @@ export default function AnalysisPage() {
         case 'ArrowRight': e.preventDefault(); h.redoMove(); break;
         case 'r': case 'R': e.preventDefault(); h.requestReset(); break;
         case 'f': case 'F': e.preventDefault(); h.flipBoard(); break;
+        case '?': e.preventDefault(); setShowShortcutGuide(p => !p); break;
         default: break;
       }
     };
@@ -305,7 +373,8 @@ export default function AnalysisPage() {
       history.importFen(fenInput, engine.sendCommand);
       toast.success('FEN imported successfully!');
       setShowFenModal(false);
-    } catch {
+    } catch (err) {
+      console.warn('Failed to import FEN:', err);
       toast.error('Invalid FEN string.');
     }
   };
@@ -315,7 +384,7 @@ export default function AnalysisPage() {
       navigator.clipboard.writeText(fenInput || history.game.fen());
       toast.success('FEN copied to clipboard!');
       setShowFenModal(false);
-    } catch { toast.error('Failed to copy FEN'); }
+    } catch (err) { console.warn('Failed to copy FEN:', err); toast.error('Failed to copy FEN'); }
   };
 
   const handlePgnClick = () => {
@@ -324,7 +393,8 @@ export default function AnalysisPage() {
       // Use buildPgnWithNag which injects NAG ($1-$6) annotations from classifications
       const pgnStr = buildPgnWithNag(pgnHeaders, movesArray, engine.moveClassifications);
       setPgnInput(pgnStr);
-    } catch {
+    } catch (err) {
+      console.warn('Failed to build PGN with NAG annotations, falling back to standard PGN:', err);
       setPgnInput(history.game.pgn());
     }
     setShowPgnModal(true);
@@ -351,7 +421,7 @@ export default function AnalysisPage() {
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
       toast.success(`PGN downloaded: ${filename}`);
-    } catch { toast.error('Failed to download PGN'); }
+    } catch (err) { console.warn('Failed to download PGN:', err); toast.error('Failed to download PGN'); }
   };
 
   const handleImportPgn = () => {
@@ -362,25 +432,21 @@ export default function AnalysisPage() {
       history.importPgn(pgnInput, engine.sendCommand);
       toast.success('PGN imported successfully!');
       setShowPgnModal(false);
-    } catch { toast.error('Invalid PGN string.'); }
+    } catch (err) { console.warn('Failed to import PGN:', err); toast.error('Invalid PGN string.'); }
   };
 
-  // ── Skeleton Loading State ────────────────────────────────
-  if (isLoading) {
-    return (
-      <div className="App">
-        <main className="App-body">
-          <PanelSkeleton />
-          <div style={{ gridArea: 'chessboard' }}><BoardSkeleton /></div>
-          <PanelSkeleton />
-          <MoveHistorySkeleton />
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="App">
+    <div className="sk-transition-wrap">
+      {/* ── Skeleton (fades out) ── */}
+      {showSkeleton && (
+        <div className={`sk-fade-layer ${!isLoading ? 'sk-fade-out' : ''}`}>
+          <AnalysisSkeleton stepIndex={stepIndex} />
+        </div>
+      )}
+
+      {/* ── Real content (crossfade saat skeleton fade out) ── */}
+      <div className={`sk-entering-content ${!isLoading ? 'sk-crossfade' : ''}`}>
+        <div className="App">
       <main className="App-body">
         <Suspense fallback={<PanelSkeleton />}>
           <EvaluationSection
@@ -388,11 +454,13 @@ export default function AnalysisPage() {
             whiteHeight={whiteHeight}
             isDepthAnalysisEnabled={isDepthAnalysisEnabled}
             multiPvLines={engine.multiPvLines}
+            onClickPvMove={playPvLine}
           />
         </Suspense>
 
         <div style={{ gridArea: 'chessboard' }}>
           <Suspense fallback={<BoardSkeleton />}>
+            <ErrorBoundary componentName="Analysis Chessboard">
             <ChessboardContainer
               fen={history.fen}
               onDrop={onDrop}
@@ -406,6 +474,7 @@ export default function AnalysisPage() {
               checkedKingSquare={checkedKingSquare}
               showArrow={showArrow}
             />
+            </ErrorBoundary>
           </Suspense>
         </div>
 
@@ -432,13 +501,19 @@ export default function AnalysisPage() {
             onMultiPvChange={handleMultiPvChange}
             showArrow={showArrow}
             onShowArrowChange={setShowArrow}
+            onKeyboardShortcuts={() => setShowShortcutGuide(true)}
           />
         </Suspense>
 
         <OpeningExplorer moves={history.moves} />
 
         <Suspense fallback={<MoveHistorySkeleton />}>
-          <MoveHistory moves={history.moves} classifications={engine.moveClassifications} />
+          <MoveHistory
+            moves={history.moves}
+            classifications={engine.moveClassifications}
+            currentMoveIndex={history.historyPointer}
+            onJumpToMove={jumpToMove}
+          />
         </Suspense>
 
         {/* Game Over Banner */}
@@ -459,29 +534,29 @@ export default function AnalysisPage() {
         {gameOverBanner && (
           <div className="game-over-banner" role="alert">
             <span className="game-over-text">{gameOverBanner}</span>
-            <button className="button-primary" onClick={requestReset} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
+            <button className="button-primary banner-action-btn" onClick={requestReset}>
               New Game
             </button>
-            <button className="button-secondary" onClick={() => setShowGameReview(true)} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
+            <button className="button-secondary banner-action-btn" onClick={() => setShowGameReview(true)}>
               Review Game
             </button>
             <button
-              className="button-secondary"
+              className="button-secondary banner-action-btn"
               onClick={async () => {
                 try {
                   const pgn = buildPgnWithNag(pgnHeaders, history.moves, engine.moveClassifications);
-                  const ok = await copyShareLink(pgn, gameResult, 'Share game link');
+                  const ok = await copyShareLink(pgn, gameResult);
                   if (ok) toast.success('Share link copied to clipboard!');
                   else toast.error('Failed to copy share link');
-                } catch {
+                } catch (err) {
+                  console.error('Failed to generate share link:', err);
                   toast.error('Failed to generate share link');
                 }
               }}
-              style={{ padding: '8px 20px', fontSize: '0.9em' }}
             >
               Share
             </button>
-            <button className="button-secondary" onClick={() => setGameOverBanner(null)} style={{ padding: '8px 20px', fontSize: '0.9em' }}>
+            <button className="button-secondary banner-action-btn" onClick={() => setGameOverBanner(null)}>
               Dismiss
             </button>
           </div>
@@ -538,6 +613,32 @@ export default function AnalysisPage() {
         </div>
       </Modal>
 
+      {/* ── Keyboard Shortcuts Guide Modal ── */}
+      {showShortcutGuide && (
+        <AccessibleDialog isOpen={true} onClose={() => setShowShortcutGuide(false)} labelledBy="shortcut-guide-title">
+          <div className="shortcut-guide-card">
+            <h2 id="shortcut-guide-title" className="shortcut-guide-title">
+              <Zap size={22} />
+              Keyboard Shortcuts
+            </h2>
+            <div className="shortcut-guide-list">
+              {SHORTCUTS.map((s) => (
+                <div key={s.key} className="shortcut-guide-row">
+                  <kbd className="shortcut-guide-key">{s.key}</kbd>
+                  <span className="shortcut-guide-action">{s.action}</span>
+                </div>
+              ))}
+            </div>
+            <p className="shortcut-guide-hint">Press <kbd>?</kbd> to toggle this guide anytime.</p>
+            <div className="shortcut-guide-actions">
+              <button className="button-primary" onClick={() => setShowShortcutGuide(false)}>
+                Got it
+              </button>
+            </div>
+          </div>
+        </AccessibleDialog>
+      )}
+
       <Modal isOpen={showPgnModal} onClose={() => setShowPgnModal(false)} title="PGN">
         <textarea
           rows="10"
@@ -551,6 +652,8 @@ export default function AnalysisPage() {
           <button className="button-secondary" onClick={handleDownloadPgn}>Download .pgn</button>
         </div>
       </Modal>
+        </div>
+      </div>
     </div>
   );
 }

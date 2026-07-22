@@ -11,7 +11,8 @@ function getPlayerId() {
       localStorage.setItem('chessweb_player_id', id);
     }
     return id;
-  } catch {
+  } catch (err) {
+    console.warn('gameHistory: localStorage unavailable for player ID:', err);
     return 'player_' + Math.random().toString(36).substring(2, 10);
   }
 }
@@ -190,7 +191,8 @@ export async function getGameCount() {
 
     if (error) return 0;
     return count || 0;
-  } catch {
+  } catch (err) {
+    console.warn('gameHistory: Failed to get game count:', err);
     return 0;
   }
 }

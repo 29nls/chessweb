@@ -26,7 +26,8 @@ function formatDate(dateStr) {
       month: 'short', day: 'numeric',
       year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     });
-  } catch {
+  } catch (err) {
+    console.warn('GameHistoryPanel: Failed to format date:', dateStr, err);
     return dateStr;
   }
 }
@@ -64,7 +65,7 @@ function SourceIcon({ source }) {
 /**
  * GameHistoryPanel — Browse and replay saved games.
  */
-const GameHistoryPanel = ({ onClose, onReplay }) => {
+const GameHistoryPanel = ({ onClose, onReplay, onReady }) => {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(null);
@@ -75,7 +76,8 @@ const GameHistoryPanel = ({ onClose, onReplay }) => {
     const data = await getGames({ limit: 100 });
     setGames(data);
     setLoading(false);
-  }, []);
+    onReady?.();
+  }, [onReady]);
 
   useEffect(() => {
     loadGames();
@@ -133,8 +135,8 @@ const GameHistoryPanel = ({ onClose, onReplay }) => {
         </div>
       ) : (
         <div className="gh-list" role="list" aria-label="Saved games">
-          {games.map(game => (
-            <div key={game.id} className="gh-item" role="listitem">
+          {games.map((game, idx) => (
+            <div key={game.id} className="gh-item" role="listitem" style={{ '--stagger': idx }}>
               <button
                 className="gh-item-main"
                 onClick={() => handleReplay(game)}

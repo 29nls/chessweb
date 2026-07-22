@@ -13,6 +13,7 @@ export function normalizeEvaluationToWhite(score, turn) {
  * Separated from UI concerns so AnalysisPage stays focused on rendering.
  */
 export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1 }) {
+  const [engineReady, setEngineReady] = useState(false);
   const [stockfishEval, setStockfishEval] = useState({ score: null, type: 'cp' });
   const [moveClassifications, setMoveClassifications] = useState([]);
   const [multiPvLines, setMultiPvLines] = useState([]);
@@ -29,6 +30,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
   const stockfishEvalRef = useRef(stockfishEval);
   const fenRef = useRef(fen);
   const multiPvRef = useRef(multiPv);
+  const onBestMoveRef = useRef(onBestMove);
 
   // Keep refs synced
   useEffect(() => {
@@ -36,6 +38,11 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     fenRef.current = fen;
     multiPvRef.current = multiPv;
   }, [stockfishEval, fen, multiPv]);
+
+  // Keep onBestMove ref synced so the engine closure always reads the latest callback
+  useEffect(() => {
+    onBestMoveRef.current = onBestMove;
+  }, [onBestMove]);
 
   // Use refs for engine settings so changing them doesn't recreate the engine
   const threadsRef = useRef(threads);
@@ -129,12 +136,13 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
         pendingSideRef.current = turn;
         pendingIsEngineRef.current = true;
 
-        if (onBestMove) {
+        const bestMoveCb = onBestMoveRef.current;
+        if (bestMoveCb) {
           const gameCopy = new Chess(fenRef.current);
           try {
             const moveResult = gameCopy.move(data.move, { sloppy: true });
             if (moveResult) {
-              onBestMove(gameCopy, moveResult);
+              bestMoveCb(gameCopy, moveResult);
             }
           } catch (err) {
             // Ignore invalid moves
@@ -144,6 +152,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     });
 
     engine.current.onConnect(() => {
+      setEngineReady(true);
       sendCommand('uci');
       sendCommand(`setoption name Threads value ${threadsRef.current}`);
       sendCommand(`setoption name Hash value ${hashSizeRef.current}`);
@@ -186,6 +195,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
   }, []);
 
   return {
+    engineReady,
     stockfishEval,
     moveClassifications,
     multiPvLines,
