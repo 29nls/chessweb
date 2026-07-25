@@ -37,3 +37,5 @@ yarn-error.log*
 
 # generated / tooling artifacts
 AGENTS.md
+.orchestry
+node_modules
