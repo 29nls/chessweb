@@ -576,6 +576,15 @@ const LandingScreen = () => {
           />
 
           <LandingCard
+            title="Puzzle Rush"
+            description="Race against the clock! Solve as many puzzles as you can with limited time and lives. Beat your high score."
+            icon={<Zap size={20} />}
+            variantClass="puzzle-rush"
+            badge="Timed"
+            onClick={() => navigate('/puzzle-rush')}
+          />
+
+          <LandingCard
             title="Game History"
             description="Review your completed games. Replay them anytime with Stockfish evaluation and explore every variation."
             icon={<Clock size={20} />}
@@ -589,8 +598,8 @@ const LandingScreen = () => {
         {/* ── Stats Row ── */}
         <section className="landing-stats" aria-label="Platform Statistics">
           <AnimatedCounter
-            end={50}
-            suffix="+"
+            end={20}
+            suffix=""
             label="Curated Puzzles"
             icon={<Zap size={20} />}
             delay={0}
@@ -610,9 +619,9 @@ const LandingScreen = () => {
             delay={0.3}
           />
           <AnimatedCounter
-            end={3000}
+            end={22}
             suffix="+"
-            label="Nodes Per Second"
+            label="Analysis Depth"
             icon={<BarChart2 size={20} />}
             delay={0.45}
           />
@@ -623,7 +632,7 @@ const LandingScreen = () => {
           <div className="features-header">
             <h2>
               <Award size={22} />
-              Fitur Unggulan
+              Key Features
             </h2>
             <p>
               Everything you need to take your chess game to the next level
@@ -641,7 +650,7 @@ const LandingScreen = () => {
 
             <FeatureCard
               title="Tactics Training"
-              description="Sharpen your pattern recognition with 50+ curated puzzles. Train forks, pins, sacrifices, and endgame techniques with instant feedback."
+              description="Sharpen your pattern recognition with 20 curated puzzles. Train forks, pins, sacrifices, and endgame techniques with instant feedback."
               icon={<Zap size={20} />}
               visual={<ChessboardMockup />}
               staggerIndex={1}

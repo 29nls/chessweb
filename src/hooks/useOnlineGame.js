@@ -205,8 +205,10 @@ export function useOnlineGame() {
     });
 
     channel.on('broadcast', { event: 'game_over' }, ({ payload }) => {
-      setGameResult({ winner: payload.winner, reason: payload.reason });
-      setGameStatus('finished');
+      if (payload.playerId !== playerIdRef.current) {
+        setGameResult({ winner: payload.winner, reason: payload.reason });
+        setGameStatus('finished');
+      }
     });
 
     // ─── Chat & Reaction Events ───

@@ -1,7 +1,7 @@
 import { renderHook, act, cleanup } from '@testing-library/react';
 import { normalizeEvaluationToWhite, useChessEngine } from './useChessEngine';
 
-// ═══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // MOCKS
 // ═══════════════════════════════════════════════════════════
 
@@ -12,6 +12,7 @@ import { normalizeEvaluationToWhite, useChessEngine } from './useChessEngine';
 let onOutputCb = null;   // captured by mockEngine.onOutput
 let onConnectCb = null;  // captured by mockEngine.onConnect
 let engineCallCount = 0; // tracks how many times createEngine was called
+let engineMock = null;   // the last mock engine returned by createEngine
 
 jest.mock('../engine', () => ({
   createEngine: jest.fn(),
@@ -27,6 +28,9 @@ import { Chess } from 'chess.js';
 // ── helpers ───────────────────────────────────────────
 
 function buildEngineMock() {
+  let searchIdCounter = 0;
+  let currentSearchId = null;
+
   return {
     onOutput: jest.fn((cb) => {
       onOutputCb = cb;
@@ -35,7 +39,13 @@ function buildEngineMock() {
     onConnect: jest.fn((cb) => {
       onConnectCb = cb;
     }),
-    sendCommand: jest.fn(),
+    sendCommand: jest.fn((cmd) => {
+      if (/^\s*go\b/i.test(cmd)) {
+        currentSearchId = ++searchIdCounter;
+      }
+      return currentSearchId;
+    }),
+    getCurrentSearchId: () => currentSearchId,
     disconnect: jest.fn(() => {
       onOutputCb = null;
       onConnectCb = null;
@@ -51,7 +61,8 @@ beforeEach(() => {
   // Re-establish createEngine mock (wiped by resetMocks: true)
   createEngine.mockImplementation(() => {
     engineCallCount++;
-    return buildEngineMock();
+    engineMock = buildEngineMock();
+    return engineMock;
   });
 
   // Re-establish Chess constructor mock
@@ -65,6 +76,7 @@ afterEach(() => {
   cleanup();
   onOutputCb = null;
   onConnectCb = null;
+  engineMock = null;
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -83,17 +95,18 @@ describe('normalizeEvaluationToWhite', () => {
 });
 
 // ═══════════════════════════════════════════════════════════
-// STALE CLOSURE FIX
+// STALE CLOSURE & RACE CONDITION FIX
 // ═══════════════════════════════════════════════════════════
 
-describe('useChessEngine — onBestMove stale closure fix', () => {
+describe('useChessEngine', () => {
 
-  /** Emit 'bestmove' + preceding 'info' through the output handler */
-  function emitBestmove(move) {
+  /** Start a search, emit one info line, then the bestmove */
+  function emitBestmove(result, move) {
     if (!onOutputCb) throw new Error('no output handler registered');
-    // Send info first (classification setup), then bestmove
-    act(() => { onOutputCb({ type: 'info', score: { type: 'cp', value: 30 }, depth: 12, pv: [move], multipv: 1 }); });
-    act(() => { onOutputCb({ type: 'bestmove', move }); });
+    act(() => { result.current.sendCommand('go depth 12'); });
+    const searchId = engineMock.getCurrentSearchId();
+    act(() => { onOutputCb({ type: 'info', searchId, score: { type: 'cp', value: 30 }, depth: 12, pv: [move], multipv: 1 }); });
+    act(() => { onOutputCb({ type: 'bestmove', searchId, move }); });
   }
 
   /** Simulate engine readiness */
@@ -104,9 +117,9 @@ describe('useChessEngine — onBestMove stale closure fix', () => {
 
   test('initial onBestMove called on bestmove event', () => {
     const cb = jest.fn();
-    renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
     connectEngine();
-    emitBestmove('e2e4');
+    emitBestmove(result, 'e2e4');
     expect(cb).toHaveBeenCalledTimes(1);
     expect(cb).toHaveBeenCalledWith(
       expect.objectContaining({ fen: expect.any(Function) }),
@@ -117,49 +130,49 @@ describe('useChessEngine — onBestMove stale closure fix', () => {
   test('updated onBestMove is used after prop change (not stale one)', () => {
     const oldCb = jest.fn();
     const newCb = jest.fn();
-    const { rerender } = renderHook(
+    const { result, rerender } = renderHook(
       (p) => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: p?.cb || oldCb, multiPv: 1 }),
       { initialProps: { cb: oldCb } },
     );
     connectEngine();
     act(() => { rerender({ cb: newCb }); });
-    emitBestmove('e2e4');
+    emitBestmove(result, 'e2e4');
     expect(newCb).toHaveBeenCalledTimes(1);
     expect(oldCb).not.toHaveBeenCalled();
   });
 
   test('only latest callback fires after multiple updates', () => {
     const cbs = [jest.fn(), jest.fn(), jest.fn()];
-    const { rerender } = renderHook(
+    const { result, rerender } = renderHook(
       (p) => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: p?.cb || cbs[0], multiPv: 1 }),
       { initialProps: { cb: cbs[0] } },
     );
     connectEngine();
     act(() => { rerender({ cb: cbs[1] }); });
     act(() => { rerender({ cb: cbs[2] }); });
-    emitBestmove('e2e4');
+    emitBestmove(result, 'e2e4');
     expect(cbs[2]).toHaveBeenCalledTimes(1);
     expect(cbs[0]).not.toHaveBeenCalled();
     expect(cbs[1]).not.toHaveBeenCalled();
   });
 
   test('undefined onBestMove does not throw', () => {
-    renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: undefined, multiPv: 1 }));
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: undefined, multiPv: 1 }));
     connectEngine();
-    expect(() => emitBestmove('e2e4')).not.toThrow();
+    expect(() => emitBestmove(result, 'e2e4')).not.toThrow();
   });
 
   test('null onBestMove does not throw', () => {
-    renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: null, multiPv: 1 }));
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: null, multiPv: 1 }));
     connectEngine();
-    expect(() => emitBestmove('e2e4')).not.toThrow();
+    expect(() => emitBestmove(result, 'e2e4')).not.toThrow();
   });
 
   test('receives correct game and move', () => {
     const cb = jest.fn();
-    renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
     connectEngine();
-    emitBestmove('e2e4');
+    emitBestmove(result, 'e2e4');
     expect(cb).toHaveBeenCalledWith(
       expect.objectContaining({ fen: expect.any(Function), move: expect.any(Function) }),
       expect.objectContaining({ from: 'e2', to: 'e4', san: 'e4' }),
@@ -173,9 +186,77 @@ describe('useChessEngine — onBestMove stale closure fix', () => {
       move: jest.fn(() => { throw new Error('invalid'); }),
       fen: () => '...',
     }));
-    renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
     connectEngine();
-    expect(() => emitBestmove('badmove')).not.toThrow();
+    expect(() => emitBestmove(result, 'badmove')).not.toThrow();
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  test('ignores stale info and bestmove from a superseded search', () => {
+    const cb = jest.fn();
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
+    connectEngine();
+
+    // Start search 1, then a new search before bestmove 1 arrives.
+    act(() => { result.current.sendCommand('go depth 12'); });
+    const staleSearchId = engineMock.getCurrentSearchId();
+    // Start search 2 (supersedes search 1).
+    act(() => { result.current.sendCommand('go depth 12'); });
+    const currentSearchId = engineMock.getCurrentSearchId();
+
+    // Emit info and bestmove for search 1 (stale)
+    act(() => { onOutputCb({ type: 'info', searchId: staleSearchId, score: { type: 'cp', value: 50 }, depth: 12, pv: ['e2e4'], multipv: 1 }); });
+    act(() => { onOutputCb({ type: 'bestmove', searchId: staleSearchId, move: 'e2e4' }); });
+
+    // The eval shouldn't be updated with search 1's info, and bestmove shouldn't be triggered
+    expect(cb).not.toHaveBeenCalled();
+    expect(result.current.stockfishEval.score).toBeNull();
+
+    // However, if we now emit info + bestmove for search 2, it should work
+    act(() => { onOutputCb({ type: 'info', searchId: currentSearchId, score: { type: 'cp', value: 100 }, depth: 12, pv: ['d2d4'], multipv: 1 }); });
+    act(() => { onOutputCb({ type: 'bestmove', searchId: currentSearchId, move: 'd2d4' }); });
+
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(result.current.stockfishEval.score).toBe(100);
+  });
+
+  test('classifies the first info after a classification search', () => {
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', multiPv: 1 }));
+    connectEngine();
+
+    act(() => { result.current.prepareClassification('w'); });
+    act(() => { result.current.sendCommand('go depth 12'); });
+    act(() => { onOutputCb({ type: 'info', score: { type: 'cp', value: 30 }, depth: 12, pv: ['e2e4'], multipv: 1 }); });
+
+    expect(result.current.moveClassifications.length).toBe(1);
+    expect(result.current.moveClassifications[0].label).toBeTruthy();
+  });
+
+  test('does not classify from a superseded classification search', () => {
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', multiPv: 1 }));
+    connectEngine();
+
+    act(() => { result.current.prepareClassification('w'); });
+    act(() => { result.current.sendCommand('go depth 12'); });
+    const staleSearchId = engineMock.getCurrentSearchId();
+    // A new search supersedes the first before any output arrives.
+    act(() => { result.current.sendCommand('go depth 12'); });
+    // This info belongs to the first (stale) search and should be ignored.
+    act(() => { onOutputCb({ type: 'info', searchId: staleSearchId, score: { type: 'cp', value: 30 }, depth: 12, pv: ['e2e4'], multipv: 1 }); });
+
+    expect(result.current.moveClassifications.length).toBe(0);
+  });
+
+  test('ucinewgame clears the current search so stale bestmove is ignored', () => {
+    const cb = jest.fn();
+    const { result } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', onBestMove: cb, multiPv: 1 }));
+    connectEngine();
+
+    act(() => { result.current.sendCommand('go depth 12'); });
+    const staleSearchId = engineMock.getCurrentSearchId();
+    act(() => { result.current.sendCommand('ucinewgame'); });
+    act(() => { onOutputCb({ type: 'bestmove', searchId: staleSearchId, move: 'e2e4' }); });
+
     expect(cb).not.toHaveBeenCalled();
   });
 });

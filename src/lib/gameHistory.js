@@ -150,7 +150,7 @@ export async function getGameById(id) {
 }
 
 /**
- * Delete a game by ID.
+ * Delete a game by ID. Uses the SECURITY DEFINER RPC to verify ownership.
  * @param {number} id
  * @returns {Promise<boolean>}
  */
@@ -158,18 +158,17 @@ export async function deleteGame(id) {
   if (!supabase) return false;
 
   try {
-    const { error } = await supabase
-      .from('games')
-      .delete()
-      .eq('id', id)
-      .eq('player_id', getPlayerId()); // Only delete own games
+    const { data, error } = await supabase.rpc('delete_chess_game', {
+      p_game_id: id,
+      p_player_id: getPlayerId(),
+    });
 
     if (error) {
       console.warn('gameHistory: Error deleting game:', error.message);
       return false;
     }
 
-    return true;
+    return data === true;
   } catch (err) {
     console.warn('gameHistory: Failed to delete game:', err.message);
     return false;

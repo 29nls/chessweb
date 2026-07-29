@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Chess } from 'chess.js';
 import { createEngine } from '../engine';
+import { isGoCommand } from '../engine/uciUtil';
 import { calculateLoss, classifyMove } from '../MoveClassification';
 
 export function normalizeEvaluationToWhite(score, turn) {
@@ -22,7 +23,6 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
   const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
   const engine = useRef(null);
-  const analysisFenRef = useRef(null);
   const evalBeforeRef = useRef(null);
   const pendingClassifyRef = useRef(false);
   const pendingSideRef = useRef(null);
@@ -31,6 +31,13 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
   const fenRef = useRef(fen);
   const multiPvRef = useRef(multiPv);
   const onBestMoveRef = useRef(onBestMove);
+
+  // ── Search request tracking ───────────────────────────────
+  // The engine tags every info/bestmove with a searchId. We keep the
+  // current search ID here so stale output from a superseded search is
+  // ignored before it can update React state, classification, or
+  // onBestMove callbacks.
+  const currentSearchIdRef = useRef(null);
 
   // Keep refs synced
   useEffect(() => {
@@ -50,11 +57,34 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
   const multiPvRefForConnect = useRef(multiPv);
 
   const sendCommand = useCallback((command) => {
+    let searchId;
     if (engine.current) {
-      engine.current.sendCommand(command);
+      searchId = engine.current.sendCommand(command);
     }
+
+    if (typeof command === 'string' && isGoCommand(command)) {
+      // Start a new search. Store the engine-assigned searchId so only
+      // output belonging to this search is accepted.
+      currentSearchIdRef.current = searchId;
+
+      // Reset UI state for the new position so the user doesn't see
+      // leftover eval/multi-PV from a previous search. Intentionally done
+      // even for classification searches to keep the UI coherent.
+      setStockfishEval({ score: null, type: 'cp' });
+      setMultiPvLines([]);
+
+      // Classification is gated by isCurrentSearch in the output handler,
+      // so it automatically applies to the first info of this new search.
+    }
+
     // Reset pending classification when starting a new game or stopping
-    if (command === 'ucinewgame' || command === 'stop') {
+    if (command === 'ucinewgame') {
+      // New game resets everything; clear the current search so stale
+      // output from a previous game cannot affect the new one.
+      currentSearchIdRef.current = null;
+      pendingClassifyRef.current = false;
+    }
+    if (command === 'stop') {
       pendingClassifyRef.current = false;
     }
   }, []);
@@ -78,7 +108,14 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     engine.current = createEngine(engineMode, backendUrl);
 
     const cleanupOutput = engine.current.onOutput((data) => {
+      // Only accept output belonging to the current search. Output without
+      // a searchId is treated as current for backward compatibility.
+      const isCurrentSearch =
+        data.searchId == null || data.searchId === currentSearchIdRef.current;
+
       if (data.type === 'info' && data.score) {
+        if (!isCurrentSearch) return;
+
         const idx = (data.multipv || 1) - 1;
         const normalizedScore = normalizeEvaluationToWhite(data.score, fenRef.current.split(' ')[1]);
         const lineEval = {
@@ -101,7 +138,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
           return updated;
         });
 
-        if (pendingClassifyRef.current) {
+        if (pendingClassifyRef.current && isCurrentSearch) {
           let beforeScore = evalBeforeRef.current;
           let afterScore = data.score.value;
 
@@ -129,6 +166,8 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
           pendingSideRef.current = null;
         }
       } else if (data.type === 'bestmove') {
+        if (!isCurrentSearch) return;
+
         setMultiPvLines([]);
         const turn = fenRef.current.split(' ')[1];
         evalBeforeRef.current = stockfishEvalRef.current.score;
@@ -163,6 +202,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     return () => {
       cleanupOutput();
       engine.current.disconnect();
+      currentSearchIdRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engineMode, backendUrl, sendCommand]);
@@ -200,7 +240,6 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     moveClassifications,
     multiPvLines,
     sendCommand,
-    analysisFenRef,
     prepareClassification,
     cancelClassification,
     resetEval,

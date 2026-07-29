@@ -140,7 +140,13 @@ export function getLabelKey(cls) {
 }
 
 /**
- * Classify a move based on centipawn loss and context
+ * Classify a move based on centipawn loss and context.
+ *
+ * Brilliant/Great require the player NOT to already be clearly winning
+ * (beforeEval <= 200 cp) — this filters out false positives from
+ * search-instability noise in already-won positions and reserves the
+ * label for genuine tactical breakthroughs from equal or worse positions.
+ *
  * @param {number} loss - Centipawn loss from player's perspective (positive = worse)
  * @param {number} beforeEval - Evaluation before the move
  * @param {number} afterEval - Evaluation after the move
@@ -151,9 +157,15 @@ export function classifyMove(loss, beforeEval, afterEval, isEngineMove = false) 
   // Engine moves are always at least "Best"
   if (isEngineMove) return LABELS.BEST;
 
+  // Only award Brilliant / Great when neither side was clearly ahead.
+  // Without this guard search noise on a +5 position can easily produce
+  // a -300 cp swing that looks like a "sacrifice" when it isn't.
+  // Uses Math.abs because beforeEval is always from White's perspective.
+  const wasBalanced = Math.abs(beforeEval) <= 200;
+
   // Player gained significant advantage (better than engine expected)
-  if (loss <= -300) return LABELS.BRILLIANT;
-  if (loss <= -150) return LABELS.GREAT;
+  if (loss <= -400 && wasBalanced) return LABELS.BRILLIANT;
+  if (loss <= -200 && wasBalanced) return LABELS.GREAT;
   if (loss <= -50)  return LABELS.EXCELLENT;
   if (loss < 0)     return LABELS.GOOD;
 

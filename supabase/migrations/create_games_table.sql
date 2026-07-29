@@ -38,8 +38,7 @@ CREATE POLICY "Anyone can view games"
   TO anon
   USING (true);
 
--- Allow anonymous delete own games by player_id
-CREATE POLICY "Anyone can delete their own games"
-  ON games FOR DELETE
-  TO anon
-  USING (true);
+-- DELETE is handled exclusively via the SECURITY DEFINER RPC delete_chess_game
+-- (see delete_chess_game.sql migration). Direct DELETE from the REST API is revoked
+-- to prevent anyone with the anon key from deleting arbitrary games.
+-- No broad DELETE policy is granted to anon.

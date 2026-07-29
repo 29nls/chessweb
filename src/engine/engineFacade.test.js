@@ -37,23 +37,26 @@ describe("createEngine('backend')", () => {
     expect(io).toHaveBeenCalledWith('http://localhost:3001');
   });
 
-  test('sendCommand emits a "command" over the socket', () => {
+  test('sendCommand emits a "command" over the socket and returns the searchId', () => {
     const engine = createEngine('backend', 'http://localhost:3001');
-    engine.sendCommand('go movetime 1000');
+    const searchId = engine.sendCommand('go movetime 1000');
     const socket = io.mock.results[0].value;
     expect(socket.emit).toHaveBeenCalledWith('command', 'go movetime 1000');
+    expect(searchId).toBe(1);
   });
 
-  test('onOutput forwards stockfish_output messages', () => {
+  test('onOutput forwards stockfish_output messages with the current searchId', () => {
     const engine = createEngine('backend', 'http://localhost:3001');
     const received = [];
     engine.onOutput((d) => received.push(d));
 
+    const searchId = engine.sendCommand('go depth 12');
     const socket = io.mock.results[0].value;
     const handler = socket.on.mock.calls.find((c) => c[0] === 'stockfish_output')[1];
     handler({ type: 'info', score: { type: 'cp', value: 10 } });
 
     expect(received).toHaveLength(1);
     expect(received[0].type).toBe('info');
+    expect(received[0].searchId).toBe(searchId);
   });
 });

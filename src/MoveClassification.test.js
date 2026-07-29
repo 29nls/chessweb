@@ -24,8 +24,20 @@ describe('classifyMove', () => {
     expect(classifyMove(500, 0, 0, true)).toBe(LABELS.BEST);
   });
 
-  test('large gain => BRILLIANT', () => {
-    expect(classifyMove(-350, 0, 350, false)).toBe(LABELS.BRILLIANT);
+  test('large gain + not winning => BRILLIANT', () => {
+    expect(classifyMove(-450, 0, 450, false)).toBe(LABELS.BRILLIANT);
+  });
+
+  test('no Brilliant when White is already winning (beforeEval > 200)', () => {
+    // same swing but player was already +3 → downgrade to EXCELLENT
+    const result = classifyMove(-450, 300, 750, false);
+    expect(result).toBe(LABELS.EXCELLENT);
+  });
+
+  test('no Brilliant when Black is already winning (beforeEval < -200)', () => {
+    // Black up 3 pawns → beforeEval = -300, Math.abs(-300)=300 > 200 → guard fails
+    const result = classifyMove(-450, -300, -750, false);
+    expect(result).toBe(LABELS.EXCELLENT);
   });
 
   test('medium gain => GREAT', () => {

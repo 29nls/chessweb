@@ -11,6 +11,8 @@
 // The worker fetches its .wasm by swapping .js -> .wasm on its own path, so
 // the two files MUST share the same basename.
 
+import { isGoCommand } from './uciUtil';
+
 const WORKER_URL = process.env.PUBLIC_URL
   ? `${process.env.PUBLIC_URL}/stockfish/stockfish-18-lite-single.js`
   : '/stockfish/stockfish-18-lite-single.js';
@@ -20,6 +22,14 @@ let ready = false;
 let restartTimer = null;
 const outputListeners = new Set();
 const readyListeners = new Set();
+
+// ── Search request tracking ──────────────────────────────
+// Each UCI 'go' command starts a new search. Tagging every emitted
+// info/bestmove with a monotonic searchId lets consumers correlate
+// engine output with the search that produced it and discard stale
+// output from a superseded analysis.
+let searchIdCounter = 0;
+let currentSearchId = null;
 
 // ── Info throttling ──────────────────────────────────────
 // Stockfish emits hundreds of `info` lines per second during analysis.
@@ -56,6 +66,7 @@ function handleLine(line) {
     const matchMultiPv = line.match(/multipv (\d+)/);
     emitInfo({
       type: 'info',
+      searchId: currentSearchId,
       raw: line,
       score: matchScore
         ? { type: matchScore[1], value: parseInt(matchScore[2], 10) }
@@ -72,7 +83,7 @@ function handleLine(line) {
     // before the bestmove is processed (critical for move classification).
     flushPendingInfo();
     const move = line.split(' ')[1];
-    emit({ type: 'bestmove', move });
+    emit({ type: 'bestmove', searchId: currentSearchId, move });
   } else if (line === 'uciok' || line === 'readyok') {
     if (!ready) {
       ready = true;
@@ -161,6 +172,11 @@ function stop() {
 export function sendCommand(command) {
   if (!worker) start();
   worker.postMessage(command);
+
+  if (isGoCommand(command)) {
+    currentSearchId = ++searchIdCounter;
+    return currentSearchId;
+  }
 }
 
 export function onOutput(cb) {

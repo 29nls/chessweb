@@ -4,6 +4,12 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
+// jsdom does not provide TextEncoder/TextDecoder, but react-router v7 uses
+// them internally. Expose them globally before any test imports the router.
+import { TextEncoder, TextDecoder } from 'util';
+global.TextEncoder = global.TextEncoder || TextEncoder;
+global.TextDecoder = global.TextDecoder || TextDecoder;
+
 // Mock window.matchMedia for JSDOM (used by AppLayout dark mode)
 window.matchMedia = window.matchMedia || (() => ({
   matches: false,
