@@ -3,6 +3,7 @@ import { Chess } from 'chess.js';
 import { createEngine } from '../engine';
 import { isGoCommand } from '../engine/uciUtil';
 import { calculateLoss, classifyMove } from '../MoveClassification';
+import { clampEngineSettings } from '../lib/validation';
 
 export function normalizeEvaluationToWhite(score, turn) {
   return turn === 'b' ? { ...score, value: -score.value } : score;
@@ -15,6 +16,8 @@ export function normalizeEvaluationToWhite(score, turn) {
  */
 export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1 }) {
   const [engineReady, setEngineReady] = useState(false);
+  const [engineError, setEngineError] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [stockfishEval, setStockfishEval] = useState({ score: null, type: 'cp' });
   const [moveClassifications, setMoveClassifications] = useState([]);
   const [multiPvLines, setMultiPvLines] = useState([]);
@@ -51,12 +54,43 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     onBestMoveRef.current = onBestMove;
   }, [onBestMove]);
 
+  // Clean up the engine when the user closes or refreshes the page. This is
+  // especially important for the browser WASM worker: it keeps calculating in
+  // the background if not explicitly stopped, wasting CPU and memory.
+  useEffect(() => {
+    const cleanupEngine = () => {
+      engine.current?.sendCommand?.('stop');
+      engine.current?.sendCommand?.('ucinewgame');
+      engine.current?.disconnect?.();
+    };
+
+    window.addEventListener('beforeunload', cleanupEngine);
+    // pagehide is the reliable counterpart on mobile Safari, which often
+    // does not fire beforeunload when the tab is closed or backgrounded.
+    window.addEventListener('pagehide', cleanupEngine);
+
+    return () => {
+      window.removeEventListener('beforeunload', cleanupEngine);
+      window.removeEventListener('pagehide', cleanupEngine);
+    };
+  }, []);
+
   // Use refs for engine settings so changing them doesn't recreate the engine
   const threadsRef = useRef(threads);
   const hashSizeRef = useRef(hashSize);
   const multiPvRefForConnect = useRef(multiPv);
 
   const sendCommand = useCallback((command) => {
+    // Stop any running search before starting a new one or switching positions.
+    // This prevents race conditions where stale engine output overwrites the
+    // current position's evaluation.
+    if (typeof command === 'string') {
+      const lower = command.toLowerCase();
+      if (lower.startsWith('position') || isGoCommand(command)) {
+        engine.current?.sendCommand?.('stop');
+      }
+    }
+
     let searchId;
     if (engine.current) {
       searchId = engine.current.sendCommand(command);
@@ -66,6 +100,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
       // Start a new search. Store the engine-assigned searchId so only
       // output belonging to this search is accepted.
       currentSearchIdRef.current = searchId;
+      setIsAnalyzing(true);
 
       // Reset UI state for the new position so the user doesn't see
       // leftover eval/multi-PV from a previous search. Intentionally done
@@ -83,9 +118,11 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
       // output from a previous game cannot affect the new one.
       currentSearchIdRef.current = null;
       pendingClassifyRef.current = false;
+      setIsAnalyzing(false);
     }
     if (command === 'stop') {
       pendingClassifyRef.current = false;
+      setIsAnalyzing(false);
     }
   }, []);
 
@@ -95,14 +132,16 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
     multiPvRefForConnect.current = multiPv;
   }, [threads, hashSize, multiPv]);
 
-  // Separate effect: send setoption when settings change, no engine recreation
+  // Separate effect: send setoption when settings change, no engine recreation.
+  // Guard with engineReady so we don't send commands to a worker that hasn't
+  // finished its UCI handshake yet (prevents silent errors during init).
   useEffect(() => {
-    if (engine.current) {
+    if (engine.current && engineReady) {
       sendCommand(`setoption name Threads value ${threads}`);
       sendCommand(`setoption name Hash value ${hashSize}`);
       sendCommand(`setoption name MultiPV value ${multiPv}`);
     }
-  }, [threads, hashSize, multiPv, sendCommand]);
+  }, [threads, hashSize, multiPv, sendCommand, engineReady]);
 
   useEffect(() => {
     engine.current = createEngine(engineMode, backendUrl);
@@ -112,6 +151,11 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
       // a searchId is treated as current for backward compatibility.
       const isCurrentSearch =
         data.searchId == null || data.searchId === currentSearchIdRef.current;
+
+      if (data.type === 'error') {
+        setEngineError(data.message || 'Engine error');
+        return;
+      }
 
       if (data.type === 'info' && data.score) {
         if (!isCurrentSearch) return;
@@ -168,6 +212,7 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
       } else if (data.type === 'bestmove') {
         if (!isCurrentSearch) return;
 
+        setIsAnalyzing(false);
         setMultiPvLines([]);
         const turn = fenRef.current.split(' ')[1];
         evalBeforeRef.current = stockfishEvalRef.current.score;
@@ -192,16 +237,27 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
 
     engine.current.onConnect(() => {
       setEngineReady(true);
+      setEngineError(null);
+      const safe = clampEngineSettings({
+        threads: threadsRef.current,
+        hashSize: hashSizeRef.current,
+        multiPv: multiPvRefForConnect.current,
+      });
       sendCommand('uci');
-      sendCommand(`setoption name Threads value ${threadsRef.current}`);
-      sendCommand(`setoption name Hash value ${hashSizeRef.current}`);
-      sendCommand(`setoption name MultiPV value ${multiPvRefForConnect.current}`);
+      sendCommand(`setoption name Threads value ${safe.threads}`);
+      sendCommand(`setoption name Hash value ${safe.hashSize}`);
+      sendCommand(`setoption name MultiPV value ${safe.multiPv}`);
       sendCommand('isready');
     });
 
     return () => {
       cleanupOutput();
-      engine.current.disconnect();
+      // Stop any running analysis and reset the engine before disconnecting.
+      // This prevents the worker/socket from continuing to calculate after the
+      // component unmounts, avoiding memory leaks and leftover background work.
+      engine.current?.sendCommand?.('stop');
+      engine.current?.sendCommand?.('ucinewgame');
+      engine.current?.disconnect?.();
       currentSearchIdRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -236,6 +292,8 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
 
   return {
     engineReady,
+    engineError,
+    isAnalyzing,
     stockfishEval,
     moveClassifications,
     multiPvLines,

@@ -57,6 +57,38 @@ const Toggle = ({ label, checked, onChange }) => (
   </div>
 );
 
+function isNetworkError(err) {
+  if (!err || typeof err.message !== 'string') return false;
+  const msg = err.message.toLowerCase();
+  return (
+    err.name === 'TypeError' ||
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('abort')
+  );
+}
+
+async function fetchJson(url, options) {
+  try {
+    const res = await fetch(url, options);
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('Retry-After') || '60';
+      throw new Error(`Rate limited. Try again in ${retryAfter}s.`);
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  } catch (err) {
+    // Re-throw network errors with a friendly message
+    if (isNetworkError(err)) {
+      throw new Error('Network error. Please check your connection.');
+    }
+    throw err;
+  }
+}
+
 const Controls = ({
   onReset, onFlip, onUndo, onRedo, canUndo, canRedo,
   engineSettings, setEngineSettings,
@@ -73,19 +105,25 @@ const Controls = ({
   onKeyboardShortcuts,
   isMuted = false,
   onMuteChange,
+  isAnalyzing = false,
 }) => {
   const [engines, setEngines] = useState([]);
   const [selectedEngine, setSelectedEngine] = useState('');
 
   useEffect(() => {
     if (engineMode === 'backend') {
-      fetch(`${backendUrl}/api/engines`)
-        .then((res) => res.json())
+      fetchJson(`${backendUrl}/api/engines`)
         .then((data) => {
+          if (!Array.isArray(data)) {
+            throw new Error('Invalid response from server');
+          }
           setEngines(data);
           if (data.length > 0) setSelectedEngine(data[0]);
         })
-        .catch((err) => console.error('Error fetching engines:', err));
+        .catch((err) => {
+          console.error('Error fetching engines:', err);
+          toast.error(`Engine list unavailable: ${err.message}`);
+        });
     } else {
       // Browser mode: single WASM engine, no selection needed
       setEngines(['Stockfish 18 (WASM)']);
@@ -93,18 +131,21 @@ const Controls = ({
     }
   }, [backendUrl, engineMode]);
 
-  const handleEngineChange = (e) => {
+  const handleEngineChange = async (e) => {
     const engineName = e.target.value;
     setSelectedEngine(engineName);
     if (engineMode === 'backend') {
-      fetch(`${backendUrl}/api/select-engine`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ engine: engineName }),
-      })
-        .then((res) => res.json())
-        .then((data) => console.log(data.message))
-        .catch((err) => console.error('Error selecting engine:', err));
+      try {
+        const data = await fetchJson(`${backendUrl}/api/select-engine`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ engine: engineName }),
+        });
+        console.log(data.message);
+      } catch (err) {
+        console.error('Error selecting engine:', err);
+        toast.error(`Failed to select engine: ${err.message}`);
+      }
     }
   };
 
@@ -132,10 +173,10 @@ const Controls = ({
     <div className="panel controls">
       <Section title="Game" icon={<Play size={20} />}>
         <div className="button-grid">
-          <IconButton onClick={onReset} icon={<RotateCcw size={18} />} text="New" shortcut="R" />
-          <IconButton onClick={onFlip} icon={<Repeat size={18} />} text="Flip" shortcut="F" />
-          <IconButton onClick={onUndo} icon={<ChevronLeft size={18} />} text="Undo" disabled={!canUndo} shortcut="←" />
-          <IconButton onClick={onRedo} icon={<ChevronRight size={18} />} text="Redo" disabled={!canRedo} shortcut="→" />
+          <IconButton onClick={onReset} icon={<RotateCcw size={18} />} text="New" shortcut="R" disabled={isAnalyzing} />
+          <IconButton onClick={onFlip} icon={<Repeat size={18} />} text="Flip" shortcut="F" disabled={isAnalyzing} />
+          <IconButton onClick={onUndo} icon={<ChevronLeft size={18} />} text="Undo" disabled={!canUndo || isAnalyzing} shortcut="←" />
+          <IconButton onClick={onRedo} icon={<ChevronRight size={18} />} text="Redo" disabled={!canRedo || isAnalyzing} shortcut="→" />
         </div>
       </Section>
 
@@ -181,7 +222,7 @@ const Controls = ({
       <Section title="Engine" icon={<Cpu size={20} />}>
         <div className="control-group">
           <label htmlFor="engine-select">Chess Engine</label>
-          <select id="engine-select" value={selectedEngine} onChange={handleEngineChange}>
+          <select id="engine-select" value={selectedEngine} onChange={handleEngineChange} disabled={isAnalyzing}>
             {engines.map((engine) => (
               <option key={engine} value={engine}>{engine}</option>
             ))}
@@ -191,7 +232,7 @@ const Controls = ({
         {!engineSettings.isDepthAnalysisEnabled && (
           <div className="control-group">
             <label htmlFor="movetime">Analysis Time (ms)</label>
-            <select id="movetime" value={engineSettings.movetime} onChange={(e) => setEngineSettings.setMovetime(parseInt(e.target.value, 10))}>
+            <select id="movetime" value={engineSettings.movetime} onChange={(e) => setEngineSettings.setMovetime(parseInt(e.target.value, 10))} disabled={isAnalyzing}>
               {[1000, 2000, 3000, 5000, 10000].map((time) => (
                 <option key={time} value={time}>{time}</option>
               ))}
@@ -201,7 +242,7 @@ const Controls = ({
 
         <div className="control-group">
           <label htmlFor="depth">Search Depth</label>
-          <select id="depth" value={engineSettings.depth} onChange={(e) => setEngineSettings.setDepth(parseInt(e.target.value, 10))}>
+          <select id="depth" value={engineSettings.depth} onChange={(e) => setEngineSettings.setDepth(parseInt(e.target.value, 10))} disabled={isAnalyzing}>
             {[10, 15, 20, 25, 30].map((d) => (
               <option key={d} value={d}>{d}</option>
             ))}
@@ -211,7 +252,7 @@ const Controls = ({
         {engineMode === 'backend' ? (
           <div className="control-group" title="CPU threads for engine analysis">
             <label htmlFor="threads">CPU Threads: {engineSettings.threads}</label>
-            <input type="range" id="threads" min="1" max={engineSettings.maxThreads} value={engineSettings.threads} onChange={handleThreadsChange} />
+            <input type="range" id="threads" min="1" max={engineSettings.maxThreads} value={engineSettings.threads} onChange={handleThreadsChange} disabled={isAnalyzing} />
           </div>
         ) : (
           <div className="control-group">
@@ -222,7 +263,7 @@ const Controls = ({
 
         <div className="control-group">
           <label htmlFor="hash">Hash Size (MB)</label>
-          <select id="hash" value={engineSettings.hashSize} onChange={handleHashChange}>
+          <select id="hash" value={engineSettings.hashSize} onChange={handleHashChange} disabled={isAnalyzing}>
             {(() => {
               // Clamp hash options to 128MB max in browser WASM mode to avoid crashes on low-end devices
               const maxHash = engineMode === 'backend'
@@ -237,9 +278,16 @@ const Controls = ({
           </select>
         </div>
 
+        {isAnalyzing && (
+          <div className="control-group analyzing-status" role="status" aria-live="polite">
+            <span className="analyzing-dot" aria-hidden="true" />
+            <span>Analysing…</span>
+          </div>
+        )}
+
         <div className="control-group">
           <label htmlFor="preset-select">Strength Preset</label>
-          <select id="preset-select" onChange={handlePresetChange} defaultValue="">
+          <select id="preset-select" onChange={handlePresetChange} defaultValue="" disabled={isAnalyzing}>
             <option value="" disabled>Select preset...</option>
             {ENGINE_PRESETS.map((p) => (
               <option key={p.label} value={p.label}>{p.label}</option>
@@ -249,7 +297,7 @@ const Controls = ({
 
         <div className="control-group">
           <label htmlFor="multiPv">Analysis Lines</label>
-          <select id="multiPv" value={multiPv} onChange={(e) => onMultiPvChange(parseInt(e.target.value, 10))}>
+          <select id="multiPv" value={multiPv} onChange={(e) => onMultiPvChange(parseInt(e.target.value, 10))} disabled={isAnalyzing}>
             {[1, 2, 3].map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}

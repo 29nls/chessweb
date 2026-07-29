@@ -131,10 +131,10 @@ jest.mock('../lib/gameHistory', () => ({
 
 jest.mock('react-toastify', () => ({
   toast: {
-    success: () => {},
-    error: () => {},
-    info: () => {},
-    warning: () => {},
+    success: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+    warning: jest.fn(),
   },
   ToastContainer: () => null,
 }));
@@ -201,6 +201,34 @@ describe('AnalysisPage — PGN modal', () => {
     renderAnalysisPage();
     fireEvent.click(screen.getByText('PGN'));
     expect(screen.getByText('Download .pgn')).toBeInTheDocument();
+  });
+});
+
+describe('AnalysisPage — FEN import validation', () => {
+  test('shows error toast when importing an invalid FEN', () => {
+    const { toast } = require('react-toastify');
+    renderAnalysisPage();
+    fireEvent.click(screen.getByText('FEN'));
+
+    const textarea = screen.getByPlaceholderText('Enter FEN string');
+    fireEvent.change(textarea, { target: { value: 'this-is-not-a-fen' } });
+    fireEvent.click(screen.getByText('Import'));
+
+    expect(toast.error).toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  test('imports successfully when FEN is valid', () => {
+    const { toast } = require('react-toastify');
+    renderAnalysisPage();
+    fireEvent.click(screen.getByText('FEN'));
+
+    const textarea = screen.getByPlaceholderText('Enter FEN string');
+    fireEvent.change(textarea, { target: { value: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' } });
+    fireEvent.click(screen.getByText('Import'));
+
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('FEN imported successfully!');
   });
 });
 

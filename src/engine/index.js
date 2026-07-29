@@ -15,6 +15,7 @@ export function createEngine(mode = 'browser', backendUrl) {
     const outputListeners = new Set();
     let searchIdCounter = 0;
     let currentSearchId = null;
+    let isSearching = false;
 
     socket.on('stockfish_output', (d) =>
       outputListeners.forEach((l) => l({ ...d, searchId: d.searchId ?? currentSearchId }))
@@ -28,19 +29,40 @@ export function createEngine(mode = 'browser', backendUrl) {
         socket.on('connect', cb);
       },
       sendCommand(cmd) {
-        if (socket.connected) socket.emit('command', cmd);
+        if (!socket.connected) return null;
+
+        // Cancel any running search before starting a new one or switching positions.
+        if (isGoCommand(cmd) && isSearching) {
+          socket.emit('command', 'stop');
+        }
+
+        socket.emit('command', cmd);
 
         if (isGoCommand(cmd)) {
+          isSearching = true;
           currentSearchId = ++searchIdCounter;
           return currentSearchId;
         }
+
+        if (cmd === 'stop' || cmd === 'ucinewgame') {
+          isSearching = false;
+        }
+
+        return null;
       },
       onOutput(cb) {
         outputListeners.add(cb);
         return () => outputListeners.delete(cb);
       },
       disconnect() {
+        // Stop any active search before disconnecting to prevent the server
+        // from continuing to analyze after the client leaves.
+        if (isSearching && socket.connected) {
+          socket.emit('command', 'stop');
+          isSearching = false;
+        }
         socket.disconnect();
+        outputListeners.clear();
       },
     };
   }

@@ -3,6 +3,27 @@ import PropTypes from 'prop-types';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
+const FILES = 'abcdefgh';
+const RANKS = '12345678';
+
+function getSquare(fileIndex, rankIndex) {
+  if (fileIndex < 0 || fileIndex > 7 || rankIndex < 0 || rankIndex > 7) return null;
+  return `${FILES[fileIndex]}${RANKS[rankIndex]}`;
+}
+
+function getPieceName(fen, square) {
+  try {
+    const game = new Chess(fen);
+    const piece = game.get(square);
+    if (!piece) return 'empty';
+    const color = piece.color === 'w' ? 'White' : 'Black';
+    const names = { p: 'Pawn', n: 'Knight', b: 'Bishop', r: 'Rook', q: 'Queen', k: 'King' };
+    return `${color} ${names[piece.type] || piece.type}`;
+  } catch {
+    return 'empty';
+  }
+}
+
 /**
  * ChessboardContainer — Wraps react-chessboard with legal move display,
  * square selection, move highlights, and auto-opponent support.
@@ -52,6 +73,10 @@ const ChessboardContainer = React.memo(({
   const [selectedSquare, setSelectedSquare] = useState(null);
   const [legalMoves, setLegalMoves] = useState([]);
   const [captureSquares, setCaptureSquares] = useState(new Set());
+
+  // Keyboard navigation state
+  const [keyboardSquare, setKeyboardSquare] = useState(null);
+  const [keyboardActive, setKeyboardActive] = useState(false);
 
   // Board flip animation — smooth 3D card flip when orientation changes
   const [flipPhase, setFlipPhase] = useState(null); // 'flip-out' | 'flip-in' | null
@@ -186,6 +211,67 @@ const ChessboardContainer = React.memo(({
     setLegalMoves(computeLegalMoves(square, fen));
   };
 
+  // Keyboard navigation handlers
+  const onBoardFocus = () => {
+    setKeyboardActive(true);
+    if (isSpectator) return;
+    if (!keyboardSquare) {
+      // Start near the moving side's back rank so the first Tab into the
+      // board is immediately useful.
+      const turn = fen.split(' ')[1];
+      const isWhiteToMove = turn === 'w';
+      setKeyboardSquare(isWhiteToMove ? 'e2' : 'e7');
+    }
+  };
+
+  const onBoardKeyDown = (e) => {
+    if (isSpectator) return;
+
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (keyboardSquare) {
+        handleSquareClick(keyboardSquare);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setSelectedSquare(null);
+      setLegalMoves([]);
+      return;
+    }
+
+    if (!keyboardSquare) return;
+
+    const file = FILES.indexOf(keyboardSquare[0]);
+    const rank = parseInt(keyboardSquare[1], 10) - 1;
+    let next = null;
+    const isWhite = boardOrientation === 'white';
+
+    switch (e.key) {
+      case 'ArrowUp':
+        next = getSquare(file, isWhite ? rank + 1 : rank - 1);
+        break;
+      case 'ArrowDown':
+        next = getSquare(file, isWhite ? rank - 1 : rank + 1);
+        break;
+      case 'ArrowLeft':
+        next = getSquare(isWhite ? file - 1 : file + 1, rank);
+        break;
+      case 'ArrowRight':
+        next = getSquare(isWhite ? file + 1 : file - 1, rank);
+        break;
+      default:
+        return;
+    }
+
+    if (next) {
+      e.preventDefault();
+      setKeyboardSquare(next);
+    }
+  };
+
   // Gunakan ref untuk callback agar tidak re-run effect saat makeAutoOpponentMove berubah referensi
   const makeAutoMoveRef = useRef(makeAutoOpponentMove);
   makeAutoMoveRef.current = makeAutoOpponentMove;
@@ -257,6 +343,14 @@ const ChessboardContainer = React.memo(({
       };
     }
 
+    // Keyboard focus indicator — inset ring so it never gets clipped
+    if (keyboardSquare && keyboardActive) {
+      styles[keyboardSquare] = {
+        ...(styles[keyboardSquare] || {}),
+        boxShadow: 'inset 0 0 0 3px var(--accent-primary)',
+      };
+    }
+
     // Legal move dots — gunakan captureSquares yang sudah di-compute saat selection
     legalMoves.forEach(sq => {
       const isCapture = captureSquares.has(sq);
@@ -277,7 +371,7 @@ const ChessboardContainer = React.memo(({
     });
 
     return styles;
-  }, [customSquareStyles, lastMove, checkedKingSquare, selectedSquare, legalMoves, captureSquares, moveAnim]);
+  }, [customSquareStyles, lastMove, checkedKingSquare, selectedSquare, legalMoves, captureSquares, moveAnim, keyboardSquare, keyboardActive]);
 
   // react-chessboard v5 API: all props go inside an `options` object.
   // Callbacks receive objects: onPieceDrop({piece, sourceSquare, targetSquare}),
@@ -355,11 +449,27 @@ const ChessboardContainer = React.memo(({
     onDrop,
   ]);
 
+  const ariaAnnouncement = keyboardSquare
+    ? `${getPieceName(fen, keyboardSquare)} on ${keyboardSquare}.${selectedSquare ? ` Selected ${selectedSquare}.` : ''}`
+    : '';
+
   return (
-    <div className={`chessboard-container-wrapper${flipPhase ? ` flip-${flipPhase}` : ''}`} data-testid="chessboard">
+    <div
+      className={`chessboard-container-wrapper${flipPhase ? ` flip-${flipPhase}` : ''}`}
+      data-testid="chessboard"
+      role="group"
+      aria-label="Chessboard. Use arrow keys to move the focus, Enter or Space to select or move a piece, Escape to deselect."
+      tabIndex={0}
+      onKeyDown={onBoardKeyDown}
+      onFocus={onBoardFocus}
+      onBlur={() => setKeyboardActive(false)}
+    >
       <div className="chessboard-container">
         <Chessboard options={boardOptions} />
       </div>
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {ariaAnnouncement}
+      </span>
     </div>
   );
 });

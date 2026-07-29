@@ -1,21 +1,5 @@
 import { supabase } from '../supabaseClient';
-
-/**
- * Get the anonymous player ID from localStorage.
- */
-function getPlayerId() {
-  try {
-    let id = localStorage.getItem('chessweb_player_id');
-    if (!id) {
-      id = 'player_' + Math.random().toString(36).substring(2, 10);
-      localStorage.setItem('chessweb_player_id', id);
-    }
-    return id;
-  } catch (err) {
-    console.warn('gameHistory: localStorage unavailable for player ID:', err);
-    return 'player_' + Math.random().toString(36).substring(2, 10);
-  }
-}
+import { getPlayerId } from './onlineGameUtils';
 
 /**
  * Save a completed game to the database.

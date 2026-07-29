@@ -1,121 +1,93 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { parseSupabaseError, logSupabaseError } from '../lib/supabaseErrors';
+import { useGameClock } from './useGameClock';
+import { useChat } from './useChat';
+import {
+  generateCode,
+  getPlayerId,
+  saveGameState,
+  clearGameState,
+  getSavedGameState,
+  TIME_CONTROL_PRESETS,
+} from '../lib/onlineGameUtils';
 
-// Generate a random 6-character alphanumeric code (uppercase)
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing chars (0/O, 1/I)
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
+// Re-export for backward compatibility
+export { TIME_CONTROL_PRESETS };
 
-// Generate a random player ID persisted in localStorage
-function getPlayerId() {
-  try {
-    let id = localStorage.getItem('chessweb_player_id');
-    if (!id) {
-      id = 'player_' + Math.random().toString(36).substring(2, 10);
-      localStorage.setItem('chessweb_player_id', id);
-    }
-    return id;
-  } catch (err) {
-    console.warn('useOnlineGame: localStorage unavailable for player ID:', err);
-    return 'player_' + Math.random().toString(36).substring(2, 10);
-  }
-}
-
-// Simpan state game untuk reconnect setelah refresh
-function saveGameState(code, color, status) {
-  try {
-    localStorage.setItem('chessweb_active_game', JSON.stringify({ code, color, status, timestamp: Date.now() }));
-  } catch (err) {
-    console.warn('useOnlineGame: Failed to save game state:', err);
-  }
-}
-
-function clearGameState() {
-  try {
-    localStorage.removeItem('chessweb_active_game');
-  } catch (err) {
-    console.warn('useOnlineGame: Failed to clear game state:', err);
-  }
-}
-
-function getSavedGameState() {
-  try {
-    const raw = localStorage.getItem('chessweb_active_game');
-    if (!raw) return null;
-    const state = JSON.parse(raw);
-    // Expire after 30 minutes
-    if (Date.now() - state.timestamp > 30 * 60 * 1000) {
-      clearGameState();
-      return null;
-    }
-    return state;
-  } catch (err) {
-    console.warn('useOnlineGame: Failed to read saved game state:', err);
-    return null;
-  }
-}
-
-// Time control presets for the lobby
-export const TIME_CONTROL_PRESETS = [
-  { label: '1 min', initialMs: 1 * 60 * 1000 },
-  { label: '3 min', initialMs: 3 * 60 * 1000 },
-  { label: '5 min', initialMs: 5 * 60 * 1000 },
-  { label: '10 min', initialMs: 10 * 60 * 1000 },
-  { label: '30 min', initialMs: 30 * 60 * 1000 },
-  { label: 'Untimed', initialMs: 0 },
-];
+// ─── Main hook ──────────────────────────────────────────
 
 export function useOnlineGame() {
-  // 'idle' | 'waiting' | 'playing' | 'finished'
+  // Core game state
   const [gameStatus, setGameStatus] = useState('idle');
   const [gameCode, setGameCode] = useState('');
-  const [playerColor, setPlayerColor] = useState(null); // 'white' | 'black' | 'spectator'
+  const [playerColor, setPlayerColor] = useState(null);
   const [opponentConnected, setOpponentConnected] = useState(false);
-  const [gameResult, setGameResult] = useState(null); // { winner, reason }
+  const [gameResult, setGameResult] = useState(null);
   const [error, setError] = useState(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
 
-  // ─── Clock State ───
-  const [timeControlMs, setTimeControlMs] = useState(0);
-  const [whiteTime, setWhiteTime] = useState(0);
-  const [blackTime, setBlackTime] = useState(0);
-  // Refs for interval to avoid stale closures
-  const whiteTimeRef = useRef(0);
-  const blackTimeRef = useRef(0);
-  const activeClockColorRef = useRef(null); // 'white' | 'black' | null
-  const clockIntervalRef = useRef(null);
-  const clockGameCodeRef = useRef('');
-  const isClockRunningRef = useRef(false);
-  const timeControlMsRef = useRef(0);
-
+  // Shared infrastructure refs
   const channelRef = useRef(null);
   const lobbyChannelRef = useRef(null);
   const playerIdRef = useRef(getPlayerId());
+
+  // Game callback refs
   const onMoveReceivedRef = useRef(null);
   const onGameStartRef = useRef(null);
   const onStateRequestedRef = useRef(null);
   const onSyncStateReceivedRef = useRef(null);
-
-  // Takeback & Draw callback refs
   const onTakebackRequestedRef = useRef(null);
   const onTakebackRespondedRef = useRef(null);
   const onDrawOfferedRef = useRef(null);
   const onDrawRespondedRef = useRef(null);
 
-  // Chat & Reaction callback refs
-  const onChatMessageRef = useRef(null);
-  const onReactionRef = useRef(null);
+  // Player color ref (used in clock callbacks and saveGameState)
+  const playerColorRef = useRef(playerColor);
+  useEffect(() => { playerColorRef.current = playerColor; }, [playerColor]);
 
-  // Clock sync callback ref
-  const onClockSyncRef = useRef(null);
+  // ─── Flag fall handler (wired to useGameClock) ────────
+  const handleFlagFall = useCallback((loserColor) => {
+    const winner = loserColor === 'white' ? 'black' : 'white';
+    setGameResult({ winner, reason: 'Time forfeit' });
+    setGameStatus('finished');
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast', event: 'game_over',
+        payload: { winner, reason: 'Time forfeit', playerId: playerIdRef.current },
+      });
+    }
+    if (gameCode) saveGameState(gameCode, playerColorRef.current, 'finished');
+  }, [gameCode]);
 
-  // Cleanup channel subscription & callback refs
+  // ─── Composed hooks ───────────────────────────────────
+
+  const clock = useGameClock({
+    channelRef,
+    playerIdRef,
+    playerColor,
+    gameCode,
+    onFlagFall: handleFlagFall,
+  });
+
+  const chat = useChat({
+    channelRef,
+    playerIdRef,
+    playerColor,
+  });
+
+  // Extract stable identities from composed hooks so callbacks
+  // that reference them don't depend on chat/clock objects (which
+  // change every render), keeping useMemo effective.
+  const chatMessageRef = chat.onChatMessageRef;
+  const chatReactionRef = chat.onReactionRef;
+  const clockSyncRef = clock.onClockSyncRef;
+  const clearChatRefs = chat.clearChatRefs;
+  const resetClockState = clock.resetClockState;
+  const setTimeControlFn = clock.setTimeControl;
+
+  // ─── Cleanup ──────────────────────────────────────────
+
   const cleanup = useCallback(() => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
@@ -125,6 +97,7 @@ export function useOnlineGame() {
       supabase.removeChannel(lobbyChannelRef.current);
       lobbyChannelRef.current = null;
     }
+    // Clear all callback refs
     onMoveReceivedRef.current = null;
     onGameStartRef.current = null;
     onStateRequestedRef.current = null;
@@ -133,18 +106,13 @@ export function useOnlineGame() {
     onTakebackRespondedRef.current = null;
     onDrawOfferedRef.current = null;
     onDrawRespondedRef.current = null;
-    onChatMessageRef.current = null;
-    onReactionRef.current = null;
-    onClockSyncRef.current = null;
-    if (clockIntervalRef.current) {
-      clearInterval(clockIntervalRef.current);
-      clockIntervalRef.current = null;
-    }
-    activeClockColorRef.current = null;
-    isClockRunningRef.current = false;
-  }, []);
+    // Clear chat refs
+    clearChatRefs();
+    // Stop clock
+    resetClockState();
+  }, [clearChatRefs, resetClockState]);
 
-  // Update presence in the global lobby (Host only)
+  // Update lobby presence
   const updateLobbyPresence = useCallback(async (code, status, numPlayers) => {
     if (!lobbyChannelRef.current) return;
     try {
@@ -156,11 +124,12 @@ export function useOnlineGame() {
         joined_at: new Date().toISOString(),
       });
     } catch (err) {
-      console.warn("Failed to update lobby presence:", err);
+      console.warn('Failed to update lobby presence:', err);
     }
   }, []);
 
-  // Subscribe to a game channel
+  // ─── Channel subscription ─────────────────────────────
+
   const subscribeToChannel = useCallback((code, color) => {
     if (!supabase) {
       setError('Supabase not configured. Check your .env file.');
@@ -169,7 +138,6 @@ export function useOnlineGame() {
 
     cleanup();
 
-    // If host (white), join the global lobby channel to broadcast this game's existence
     if (color === 'white') {
       const lobbyChannel = supabase.channel('lobby:games');
       lobbyChannel.subscribe(async (status) => {
@@ -187,17 +155,16 @@ export function useOnlineGame() {
       },
     });
 
-    // Listen for moves from opponent or players (if spectator)
+    // Move events
     channel.on('broadcast', { event: 'move' }, ({ payload }) => {
       if (payload.playerId !== playerIdRef.current && onMoveReceivedRef.current) {
         onMoveReceivedRef.current(payload);
       }
     });
 
-    // Listen for game events
+    // Resign / game_over events
     channel.on('broadcast', { event: 'resign' }, ({ payload }) => {
       if (payload.playerId !== playerIdRef.current) {
-        // If I am playing, I win. If I am spectator, just show who resigned.
         const winnerColor = payload.color === 'white' ? 'black' : 'white';
         setGameResult({ winner: winnerColor, reason: `${payload.color} resigned` });
         setGameStatus('finished');
@@ -211,20 +178,20 @@ export function useOnlineGame() {
       }
     });
 
-    // ─── Chat & Reaction Events ───
+    // Chat & Reaction (delegated to useChat refs)
     channel.on('broadcast', { event: 'chat_message' }, ({ payload }) => {
-      if (payload.playerId !== playerIdRef.current && onChatMessageRef.current) {
-        onChatMessageRef.current(payload.text, payload.color, payload.playerId);
+      if (payload.playerId !== playerIdRef.current && chatMessageRef.current) {
+        chatMessageRef.current(payload.text, payload.color, payload.playerId);
       }
     });
 
     channel.on('broadcast', { event: 'reaction' }, ({ payload }) => {
-      if (payload.playerId !== playerIdRef.current && onReactionRef.current) {
-        onReactionRef.current(payload.emoji, payload.color, payload.playerId);
+      if (payload.playerId !== playerIdRef.current && chatReactionRef.current) {
+        chatReactionRef.current(payload.emoji, payload.color, payload.playerId);
       }
     });
 
-    // ─── Takeback Events ───
+    // Takeback events
     channel.on('broadcast', { event: 'takeback_request' }, ({ payload }) => {
       if (payload.playerId !== playerIdRef.current && onTakebackRequestedRef.current) {
         onTakebackRequestedRef.current(payload.playerId);
@@ -237,14 +204,14 @@ export function useOnlineGame() {
       }
     });
 
-    // ─── Clock Sync Event ───
+    // Clock sync (delegated to useGameClock ref)
     channel.on('broadcast', { event: 'clock_sync' }, ({ payload }) => {
-      if (payload.playerId !== playerIdRef.current && onClockSyncRef.current) {
-        onClockSyncRef.current(payload.whiteTime, payload.blackTime, payload.activeColor);
+      if (payload.playerId !== playerIdRef.current && clockSyncRef.current) {
+        clockSyncRef.current(payload.whiteTime, payload.blackTime, payload.activeColor);
       }
     });
 
-    // ─── Draw Events ───
+    // Draw events
     channel.on('broadcast', { event: 'draw_offer' }, ({ payload }) => {
       if (payload.playerId !== playerIdRef.current && onDrawOfferedRef.current) {
         onDrawOfferedRef.current(payload.playerId);
@@ -257,53 +224,44 @@ export function useOnlineGame() {
       }
     });
 
-    // P2P State Synchronization for Spectators
+    // Spectator state sync
     channel.on('broadcast', { event: 'request_state' }, ({ payload }) => {
-      // If I am a player (not a spectator) and I get a state request, I'll provide it.
-      // Usually, White acts as the source of truth to avoid sending duplicate syncs.
       if (color === 'white' && onStateRequestedRef.current) {
         onStateRequestedRef.current(payload.spectatorId);
       } else if (color === 'black' && onStateRequestedRef.current) {
-        // Fallback: If white is disconnected (rare), black could answer, but let's stick to white or whoever receives it if white isn't there
         onStateRequestedRef.current(payload.spectatorId);
       }
     });
 
     channel.on('broadcast', { event: 'sync_state' }, ({ payload }) => {
-      // If I requested the state, I receive it here
       if (color === 'spectator' && payload.targetId === playerIdRef.current && onSyncStateReceivedRef.current) {
         onSyncStateReceivedRef.current(payload.fen, payload.moves, payload.history);
       }
     });
 
-    // Track presence
+    // Presence tracking
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
-      
+
       let pCount = 0;
       let sCount = 0;
-      
+
       Object.values(state).forEach(presences => {
         if (presences.length > 0) {
-           const p = presences[0];
-           if (p.role === 'player') pCount++;
-           if (p.role === 'spectator') sCount++;
+          const p = presences[0];
+          if (p.role === 'player') pCount++;
+          if (p.role === 'spectator') sCount++;
         }
       });
-      
+
       setSpectatorCount(sCount);
+      setOpponentConnected(pCount >= 2);
 
-      // If we are playing, the opponent is connected if pCount >= 2 (me and them)
-      // If we are spectator, we don't care about opponentConnected as much, but let's say true if players are present.
-      const isOpponentHere = pCount >= 2;
-      setOpponentConnected(isOpponentHere);
-
-      // Update global lobby if I am the host
       if (color === 'white') {
         updateLobbyPresence(code, pCount >= 2 ? 'playing' : 'waiting', pCount);
       }
 
-      // Race condition detection: if two players claimed the same color, resolve it
+      // Race condition detection
       let blackCount = 0;
       let whiteCount = 0;
       Object.values(state).forEach(presences => {
@@ -314,9 +272,9 @@ export function useOnlineGame() {
           }
         });
       });
+
       if (color === 'black' && blackCount > 1) {
         setError('Another player joined as Black at the same time. Please try again.');
-        // Leave gracefully instead of corrupting the game
         if (lobbyChannelRef.current) supabase.removeChannel(lobbyChannelRef.current);
         if (channelRef.current) supabase.removeChannel(channelRef.current);
         channelRef.current = null;
@@ -327,7 +285,7 @@ export function useOnlineGame() {
         setPlayerColor(null);
         setOpponentConnected(false);
         setSpectatorCount(0);
-        return; // Stop further processing
+        return;
       }
       if (color === 'white' && whiteCount > 1) {
         setError('Another player created a game with the same code. Please try again.');
@@ -344,8 +302,7 @@ export function useOnlineGame() {
         return;
       }
 
-      // If both players are present and we're waiting, start the game
-      if (isOpponentHere && pCount >= 2) {
+      if (pCount >= 2) {
         setGameStatus(prev => {
           if (prev === 'waiting') {
             saveGameState(code, color, 'playing');
@@ -366,21 +323,25 @@ export function useOnlineGame() {
           joined_at: new Date().toISOString(),
         });
 
-        // If I am a spectator, immediately request current state
         if (color === 'spectator') {
           channel.send({
             type: 'broadcast',
             event: 'request_state',
-            payload: { spectatorId: playerIdRef.current }
+            payload: { spectatorId: playerIdRef.current },
           });
         }
       }
     });
 
     channelRef.current = channel;
+    // chat/clock objects omitted from deps — only stable refs (chatMessageRef,
+    // chatReactionRef, clockSyncRef) are accessed, all of which are useRef returns
+    // that never change identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cleanup, updateLobbyPresence]);
 
-  // Coba restore state game yang tersimpan (reconnect setelah refresh)
+  // ─── Reconnect ────────────────────────────────────────
+
   useEffect(() => {
     const saved = getSavedGameState();
     if (saved && (saved.status === 'waiting' || saved.status === 'playing')) {
@@ -392,7 +353,8 @@ export function useOnlineGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Create a new game (I am white)
+  // ─── Game actions ─────────────────────────────────────
+
   const createGame = useCallback(async (timeMs) => {
     const code = generateCode();
     if (supabase) {
@@ -422,14 +384,7 @@ export function useOnlineGame() {
       }
     }
     if (timeMs != null) {
-      setTimeControlMs(timeMs);
-      timeControlMsRef.current = timeMs;
-      if (timeMs > 0) {
-        whiteTimeRef.current = timeMs;
-        blackTimeRef.current = timeMs;
-        setWhiteTime(timeMs);
-        setBlackTime(timeMs);
-      }
+      setTimeControlFn(timeMs);
     }
     setGameCode(code);
     setPlayerColor('white');
@@ -441,36 +396,31 @@ export function useOnlineGame() {
     return code;
   }, [subscribeToChannel]);
 
-  // Cek apakah slot warna sudah terisi di channel tertentu
   const checkSlotAvailability = useCallback(async (code, desiredColor) => {
-    if (!supabase) return true; // skip jika Supabase tidak terkonfigurasi
+    if (!supabase) return true;
     try {
       const tempChannel = supabase.channel(`game:${code}`, {
         config: { presence: { key: 'checker_' + getPlayerId() } },
       });
-      
+
       return new Promise((resolve) => {
         const timeout = setTimeout(() => { tempChannel.unsubscribe(); resolve(true); }, 5000);
-        
+
         tempChannel.on('presence', { event: 'sync' }, () => {
           clearTimeout(timeout);
           const state = tempChannel.presenceState();
           tempChannel.unsubscribe();
-          
+
           let blackTaken = false;
           Object.values(state).forEach(presences => {
             presences.forEach(p => {
               if (p.color === 'black' && p.role === 'player') blackTaken = true;
             });
           });
-          
-          if (desiredColor === 'black') {
-            resolve(!blackTaken);
-          } else {
-            resolve(true);
-          }
+
+          resolve(desiredColor === 'black' ? !blackTaken : true);
         });
-        
+
         tempChannel.subscribe();
       });
     } catch (err) {
@@ -479,14 +429,13 @@ export function useOnlineGame() {
     }
   }, []);
 
-  // Join an existing game (I am black)
   const joinGame = useCallback(async (code) => {
     const normalized = code.trim().toUpperCase();
     if (normalized.length !== 6) {
       setError('Code must be 6 characters');
       return false;
     }
-    
+
     if (supabase) {
       try {
         const { data, error: claimError } = await supabase.rpc('claim_chess_game_slot', {
@@ -506,10 +455,7 @@ export function useOnlineGame() {
           setError('This game already has two players. Try spectating instead.');
           return false;
         }
-        timeControlMsRef.current = claim.time_control_ms || 0;
-        setTimeControlMs(claim.time_control_ms || 0);
-        setWhiteTime(claim.time_control_ms || 0);
-        setBlackTime(claim.time_control_ms || 0);
+        setTimeControlFn(claim.time_control_ms || 0);
       } catch (rawError) {
         const parsed = parseSupabaseError(rawError);
         logSupabaseError('joinGame.catch', rawError);
@@ -517,14 +463,13 @@ export function useOnlineGame() {
         return false;
       }
     } else {
-      // Local-only fallback where cross-device atomicity cannot be guaranteed.
       const slotAvailable = await checkSlotAvailability(normalized, 'black');
       if (!slotAvailable) {
         setError('This game already has two players. Try spectating instead.');
         return false;
       }
     }
-    
+
     setGameCode(normalized);
     setPlayerColor('black');
     setGameStatus('waiting');
@@ -535,7 +480,6 @@ export function useOnlineGame() {
     return true;
   }, [subscribeToChannel, checkSlotAvailability]);
 
-  // Join as a Spectator
   const joinAsSpectator = useCallback((code) => {
     const normalized = code.trim().toUpperCase();
     if (normalized.length !== 6) {
@@ -552,134 +496,26 @@ export function useOnlineGame() {
     return true;
   }, [subscribeToChannel]);
 
-
-  // Send a move to the opponent/spectators
   const sendMove = useCallback((moveData) => {
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
         event: 'move',
-        payload: {
-          ...moveData,
-          playerId: playerIdRef.current,
-        },
+        payload: { ...moveData, playerId: playerIdRef.current },
       });
     }
   }, []);
 
-  // Send clock sync to opponent — reads from refs for live values
-  const sendClockSync = useCallback((wt, bt, activeColor) => {
-    if (channelRef.current) {
-      const wTime = wt != null ? wt : whiteTimeRef.current;
-      const bTime = bt != null ? bt : blackTimeRef.current;
-      const active = activeColor || activeClockColorRef.current;
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'clock_sync',
-        payload: { whiteTime: wTime, blackTime: bTime, activeColor: active, playerId: playerIdRef.current },
-      });
-    }
-  }, []);
-
-  // ─── Clock management — uses refs to avoid stale closures ───
-
-  const handleFlagFall = useCallback((loserColor) => {
-    if (!clockIntervalRef.current) return; // Already handled
-    clearInterval(clockIntervalRef.current);
-    clockIntervalRef.current = null;
-    activeClockColorRef.current = null;
-    isClockRunningRef.current = false;
-    const winner = loserColor === 'white' ? 'black' : 'white';
-    setGameResult({ winner, reason: 'Time forfeit' });
-    setGameStatus('finished');
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast', event: 'game_over',
-        payload: { winner, reason: 'Time forfeit', playerId: playerIdRef.current },
-      });
-    }
-    if (clockGameCodeRef.current) saveGameState(clockGameCodeRef.current, playerColorRef.current, 'finished');
-  }, []);
-
-  const tickClock = useCallback(() => {
-    const active = activeClockColorRef.current;
-    const maxMs = timeControlMsRef.current;
-    if (!active || maxMs <= 0) return;
-
-    const newWt = active === 'white' ? Math.max(0, whiteTimeRef.current - 100) : whiteTimeRef.current;
-    const newBt = active === 'black' ? Math.max(0, blackTimeRef.current - 100) : blackTimeRef.current;
-
-    whiteTimeRef.current = newWt;
-    blackTimeRef.current = newBt;
-    setWhiteTime(newWt);
-    setBlackTime(newBt);
-
-    // Flag fall
-    if (newWt <= 0) {
-      handleFlagFall('white');
-    } else if (newBt <= 0) {
-      handleFlagFall('black');
-    }
-  }, [handleFlagFall]);
-
-  const startClock = useCallback((activeColor) => {
-    const maxMs = timeControlMsRef.current;
-    if (maxMs <= 0) return;
-    if (clockIntervalRef.current) {
-      clearInterval(clockIntervalRef.current);
-    }
-    activeClockColorRef.current = activeColor;
-    isClockRunningRef.current = true;
-    clockIntervalRef.current = setInterval(tickClock, 100);
-  }, [tickClock]);
-
-  const stopClock = useCallback(() => {
-    if (clockIntervalRef.current) {
-      clearInterval(clockIntervalRef.current);
-      clockIntervalRef.current = null;
-    }
-    activeClockColorRef.current = null;
-    isClockRunningRef.current = false;
-  }, []);
-
-  const setTimeControl = useCallback((initialMs) => {
-    setTimeControlMs(initialMs);
-    timeControlMsRef.current = initialMs;
-    if (initialMs > 0) {
-      whiteTimeRef.current = initialMs;
-      blackTimeRef.current = initialMs;
-      setWhiteTime(initialMs);
-      setBlackTime(initialMs);
-    }
-  }, []);
-
-  // Expose direct setters for clock sync drift correction
-  const setClockTimesFromSync = useCallback((wt, bt) => {
-    whiteTimeRef.current = wt;
-    blackTimeRef.current = bt;
-    setWhiteTime(wt);
-    setBlackTime(bt);
-  }, []);
-
-  // Player color ref for use in clock callbacks
-  const playerColorRef = useRef(playerColor);
-  useEffect(() => { playerColorRef.current = playerColor; }, [playerColor]);
-  useEffect(() => { clockGameCodeRef.current = gameCode; }, [gameCode]);
-  // Keep timeControlMsRef in sync
-  useEffect(() => { timeControlMsRef.current = timeControlMs; }, [timeControlMs]);
-
-  // Send state sync to a spectator
   const sendSyncState = useCallback((targetId, fen, moves, history) => {
     if (channelRef.current) {
       channelRef.current.send({
         type: 'broadcast',
         event: 'sync_state',
-        payload: { targetId, fen, moves, history }
+        payload: { targetId, fen, moves, history },
       });
     }
   }, []);
 
-  // Resign the game
   const resign = useCallback(() => {
     if (channelRef.current && playerColor !== 'spectator') {
       channelRef.current.send({
@@ -694,7 +530,6 @@ export function useOnlineGame() {
     }
   }, [playerColor, gameCode]);
 
-  // Broadcast game over (checkmate, stalemate, etc.)
   const broadcastGameOver = useCallback((winner, reason) => {
     if (channelRef.current) {
       channelRef.current.send({
@@ -705,11 +540,9 @@ export function useOnlineGame() {
     }
     setGameResult({ winner, reason });
     setGameStatus('finished');
-    // Bugfix: update localStorage agar tidak direstore oleh reconnect logic
     if (gameCode) saveGameState(gameCode, playerColor, 'finished');
   }, [gameCode, playerColor]);
 
-  // ─── Takeback Actions ───
   const sendTakebackRequest = useCallback(() => {
     if (channelRef.current && playerColor !== 'spectator') {
       channelRef.current.send({
@@ -727,16 +560,12 @@ export function useOnlineGame() {
         event: 'takeback_response',
         payload: { playerId: playerIdRef.current, accepted },
       });
-      // Bugfix: jika accepted, update lokal state agar tidak desync
-      // onTakebackResponded tidak akan dipanggil untuk diri sendiri (broadcast: {self: false})
       if (accepted && onTakebackRespondedRef.current) {
-        // Panggil langsung callback untuk update papan lokal
         onTakebackRespondedRef.current(true, playerIdRef.current);
       }
     }
   }, [playerColor]);
 
-  // ─── Draw Actions ───
   const offerDraw = useCallback(() => {
     if (channelRef.current && playerColor !== 'spectator') {
       channelRef.current.send({
@@ -755,7 +584,6 @@ export function useOnlineGame() {
         payload: { playerId: playerIdRef.current, accepted },
       });
       if (accepted) {
-        // Broadcast game_over so spectators see the result too
         channelRef.current.send({
           type: 'broadcast',
           event: 'game_over',
@@ -768,7 +596,6 @@ export function useOnlineGame() {
     }
   }, [gameCode, playerColor]);
 
-  // Leave the game and return to idle
   const leaveGame = useCallback(async () => {
     if (supabase && gameCode && playerColor !== 'spectator') {
       try {
@@ -791,82 +618,25 @@ export function useOnlineGame() {
     setError(null);
   }, [cleanup, gameCode, playerColor]);
 
-  // Register callbacks
-  const onMoveReceived = useCallback((callback) => {
-    onMoveReceivedRef.current = callback;
-  }, []);
+  // ─── Callback registrations ───────────────────────────
 
-  const onGameStart = useCallback((callback) => {
-    onGameStartRef.current = callback;
-  }, []);
+  const registerOnMoveReceived = useCallback((cb) => { onMoveReceivedRef.current = cb; }, []);
+  const registerOnGameStart = useCallback((cb) => { onGameStartRef.current = cb; }, []);
+  const registerOnStateRequested = useCallback((cb) => { onStateRequestedRef.current = cb; }, []);
+  const registerOnSyncStateReceived = useCallback((cb) => { onSyncStateReceivedRef.current = cb; }, []);
+  const registerOnTakebackRequested = useCallback((cb) => { onTakebackRequestedRef.current = cb; }, []);
+  const registerOnTakebackResponded = useCallback((cb) => { onTakebackRespondedRef.current = cb; }, []);
+  const registerOnDrawOffered = useCallback((cb) => { onDrawOfferedRef.current = cb; }, []);
+  const registerOnDrawResponded = useCallback((cb) => { onDrawRespondedRef.current = cb; }, []);
 
-  const onClockSync = useCallback((callback) => {
-    onClockSyncRef.current = callback;
-  }, []);
+  // ─── Cleanup on unmount ───────────────────────────────
 
-  const onStateRequested = useCallback((callback) => {
-    onStateRequestedRef.current = callback;
-  }, []);
-
-  const onSyncStateReceived = useCallback((callback) => {
-    onSyncStateReceivedRef.current = callback;
-  }, []);
-
-  // ─── Chat & Reaction Actions ───
-  const sendChatMessage = useCallback((text) => {
-    if (channelRef.current && playerColor !== 'spectator') {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'chat_message',
-        payload: { playerId: playerIdRef.current, text, color: playerColor },
-      });
-    }
-  }, [playerColor]);
-
-  const sendReaction = useCallback((emoji) => {
-    if (channelRef.current && playerColor !== 'spectator') {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'reaction',
-        payload: { playerId: playerIdRef.current, emoji, color: playerColor },
-      });
-    }
-  }, [playerColor]);
-
-  // Register takeback & draw callbacks
-  const onTakebackRequested = useCallback((callback) => {
-    onTakebackRequestedRef.current = callback;
-  }, []);
-
-  const onTakebackResponded = useCallback((callback) => {
-    onTakebackRespondedRef.current = callback;
-  }, []);
-
-  const onDrawOffered = useCallback((callback) => {
-    onDrawOfferedRef.current = callback;
-  }, []);
-
-  const onDrawResponded = useCallback((callback) => {
-    onDrawRespondedRef.current = callback;
-  }, []);
-
-  // Register chat & reaction callbacks
-  const onChatMessage = useCallback((callback) => {
-    onChatMessageRef.current = callback;
-  }, []);
-
-  const onReaction = useCallback((callback) => {
-    onReactionRef.current = callback;
-  }, []);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => cleanup();
   }, [cleanup]);
 
-  // Bugfix #2: memoize return object to prevent cascading re-renders in OnlinePage.
-  // All callbacks are stable (wrapped in useCallback), so the object reference only
-  // changes when state values actually change.
+  // ─── Memoized return object ───────────────────────────
+
   return useMemo(() => ({
     // State
     gameStatus,
@@ -877,19 +647,19 @@ export function useOnlineGame() {
     gameResult,
     error,
 
-    // Clock state
-    timeControlMs,
-    whiteTime,
-    blackTime,
+    // Clock state (delegated)
+    timeControlMs: clock.timeControlMs,
+    whiteTime: clock.whiteTime,
+    blackTime: clock.blackTime,
 
-    // Clock actions
-    startClock,
-    stopClock,
-    sendClockSync,
-    setTimeControl,
-    setClockTimesFromSync,
+    // Clock actions (delegated)
+    startClock: clock.startClock,
+    stopClock: clock.stopClock,
+    sendClockSync: clock.sendClockSync,
+    setTimeControl: clock.setTimeControl,
+    setClockTimesFromSync: clock.setClockTimesFromSync,
 
-    // Actions
+    // Core game actions
     createGame,
     joinGame,
     joinAsSpectator,
@@ -902,61 +672,39 @@ export function useOnlineGame() {
     sendTakebackResponse,
     offerDraw,
     sendDrawResponse,
-    sendChatMessage,
-    sendReaction,
 
-    // Callbacks
-    onMoveReceived,
-    onGameStart,
-    onClockSync,
-    onStateRequested,
-    onSyncStateReceived,
-    onTakebackRequested,
-    onTakebackResponded,
-    onDrawOffered,
-    onDrawResponded,
-    onChatMessage,
-    onReaction,
+    // Chat actions (delegated)
+    sendChatMessage: chat.sendChatMessage,
+    sendReaction: chat.sendReaction,
+
+    // Callback registrations
+    onMoveReceived: registerOnMoveReceived,
+    onGameStart: registerOnGameStart,
+    onClockSync: clock.registerOnClockSync,
+    onStateRequested: registerOnStateRequested,
+    onSyncStateReceived: registerOnSyncStateReceived,
+    onTakebackRequested: registerOnTakebackRequested,
+    onTakebackResponded: registerOnTakebackResponded,
+    onDrawOffered: registerOnDrawOffered,
+    onDrawResponded: registerOnDrawResponded,
+    onChatMessage: chat.registerOnChatMessage,
+    onReaction: chat.registerOnReaction,
   }), [
-    gameStatus,
-    gameCode,
-    playerColor,
-    opponentConnected,
-    spectatorCount,
-    gameResult,
-    error,
-    timeControlMs,
-    whiteTime,
-    blackTime,
-    startClock,
-    stopClock,
-    sendClockSync,
-    setTimeControl,
-    setClockTimesFromSync,
-    createGame,
-    joinGame,
-    joinAsSpectator,
-    sendMove,
-    sendSyncState,
-    resign,
-    broadcastGameOver,
-    leaveGame,
-    sendTakebackRequest,
-    sendTakebackResponse,
-    offerDraw,
-    sendDrawResponse,
-    sendChatMessage,
-    sendReaction,
-    onMoveReceived,
-    onGameStart,
-    onClockSync,
-    onStateRequested,
-    onSyncStateReceived,
-    onTakebackRequested,
-    onTakebackResponded,
-    onDrawOffered,
-    onDrawResponded,
-    onChatMessage,
-    onReaction,
+    gameStatus, gameCode, playerColor, opponentConnected,
+    spectatorCount, gameResult, error,
+    clock.timeControlMs, clock.whiteTime, clock.blackTime,
+    clock.startClock, clock.stopClock, clock.sendClockSync,
+    clock.setTimeControl, clock.setClockTimesFromSync,
+    clock.registerOnClockSync,
+    createGame, joinGame, joinAsSpectator, sendMove, sendSyncState,
+    resign, broadcastGameOver, leaveGame,
+    sendTakebackRequest, sendTakebackResponse,
+    offerDraw, sendDrawResponse,
+    chat.sendChatMessage, chat.sendReaction,
+    chat.registerOnChatMessage, chat.registerOnReaction,
+    registerOnMoveReceived, registerOnGameStart,
+    registerOnStateRequested, registerOnSyncStateReceived,
+    registerOnTakebackRequested, registerOnTakebackResponded,
+    registerOnDrawOffered, registerOnDrawResponded,
   ]);
 }

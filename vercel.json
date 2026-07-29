@@ -4,8 +4,26 @@
         {
             "source": "/(.*)",
             "headers": [
-                { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
-                { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" }
+                {
+                    "key": "Cross-Origin-Opener-Policy",
+                    "value": "same-origin"
+                },
+                {
+                    "key": "Cross-Origin-Embedder-Policy",
+                    "value": "credentialless"
+                },
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co wss://*.supabase.in ws: wss:; worker-src 'self' blob:; media-src 'self'; manifest-src 'self'; frame-src 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; report-uri /api/csp-report"
+                }
+            ]
+        },
+        {
+            "source": "/api/(.*)",
+            "headers": [
+                { "key": "Access-Control-Allow-Origin", "value": "*" },
+                { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+                { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
             ]
         }
     ]

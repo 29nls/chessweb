@@ -1,3 +1,5 @@
+import { containsHtmlTags } from './htmlUtil';
+
 /**
  * Share/Replay Link helpers
  *
@@ -39,11 +41,13 @@ export function encodeGameToQuery(pgn, result) {
  * Generate a full shareable URL for a game.
  * @param {string} pgn - The PGN string
  * @param {{ winner: string|null, reason: string }|null} result - Game result
+ * @param {string} [origin] - Optional origin override (defaults to window.location.origin)
  * @returns {string} Full URL (pathname + query string)
  */
-export function generateShareUrl(pgn, result) {
+export function generateShareUrl(pgn, result, origin) {
+  const baseOrigin = typeof origin === 'string' ? origin : window.location.origin;
   const query = encodeGameToQuery(pgn, result);
-  return `${window.location.origin}/analysis${query}`;
+  return `${baseOrigin}/analysis${query}`;
 }
 
 /**
@@ -52,12 +56,36 @@ export function generateShareUrl(pgn, result) {
  * @returns {{ pgn: string|null, result: { winner: string, reason: string }|null }}
  */
 export function decodeGameFromParams(params) {
-  const pgn = params.get('pgn');
+  let pgn = params.get('pgn');
+  if (pgn && containsHtmlTags(pgn)) {
+    console.warn('share: PGN parameter contains forbidden HTML/script tags');
+    pgn = null;
+  }
   let result = null;
   const resultStr = params.get('result');
   if (resultStr) {
     try {
-      result = JSON.parse(resultStr);
+      const parsed = JSON.parse(resultStr);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed) &&
+        (parsed.winner === 'white' ||
+          parsed.winner === 'black' ||
+          parsed.winner === 'draw' ||
+          parsed.winner === null ||
+          parsed.winner === undefined) &&
+        (parsed.reason === undefined ||
+          parsed.reason === null ||
+          (typeof parsed.reason === 'string' && !containsHtmlTags(parsed.reason)))
+      ) {
+        result = {
+          winner: parsed.winner || null,
+          reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+        };
+      } else {
+        console.warn('share: Invalid result schema in URL params');
+      }
     } catch (err) {
       console.warn('share: Failed to decode result from params:', err);
     }

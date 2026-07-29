@@ -16,10 +16,14 @@ const AccuracyCard = ({ side, accuracy, isWinner }) => {
   else { colorClass = 'good'; grade = 'Excellent'; }
 
   return (
-    <div className={`accuracy-card ${accuracy < 50 ? 'low' : accuracy < 70 ? 'medium' : 'high'}`}>
-      <div className="accuracy-side">{sideLabel} {isWinner && '(Winner)'}</div>
-      <div className={`accuracy-score ${colorClass}`}>{accuracy}%</div>
-      <div className="accuracy-label">{grade}</div>
+    <div
+      className={`accuracy-card ${accuracy < 50 ? 'low' : accuracy < 70 ? 'medium' : 'high'}`}
+      role="region"
+      aria-label={`${sideLabel} accuracy: ${accuracy} percent. ${isWinner ? 'Winner. ' : ''}${grade}`}
+    >
+      <div className="accuracy-side" aria-hidden="true">{sideLabel} {isWinner && '(Winner)'}</div>
+      <div className={`accuracy-score ${colorClass}`} aria-live="polite" aria-atomic="true">{accuracy}%</div>
+      <div className="accuracy-label" aria-hidden="true">{grade}</div>
     </div>
   );
 };
@@ -39,17 +43,19 @@ const BreakdownCounts = ({ counts, sideLabel }) => {
   }
 
   return (
-    <div className="breakdown-side">
+    <div className="breakdown-side" role="region" aria-label={`${sideLabel} move breakdown`}>
       <h4>{sideLabel}</h4>
-      {entries.map(({ key, count, color, icon }) => (
-        <div key={key} className="breakdown-count">
-          <span className="breakdown-label" style={{ color }}>
-            {icon && <span>{icon}</span>}
-            {key}
-          </span>
-          <span className="breakdown-num">{count}</span>
-        </div>
-      ))}
+      <ul role="list" aria-label={`${sideLabel} classified moves`}>
+        {entries.map(({ key, count, color, icon }) => (
+          <li key={key} className="breakdown-count">
+            <span className="breakdown-label" style={{ color }}>
+              {icon && <span aria-hidden="true">{icon}</span>}
+              {key}
+            </span>
+            <span className="breakdown-num">{count}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
@@ -63,6 +69,7 @@ const GameReview = ({ isOpen, onClose, onNewGame, classifications, moves, result
         isOpen={isOpen}
         onClose={onClose}
         labelledBy="game-review-title"
+        describedBy="game-review-subtitle"
         className="game-review-dialog"
       >
         <GameReviewSkeleton />
@@ -80,6 +87,7 @@ const GameReview = ({ isOpen, onClose, onNewGame, classifications, moves, result
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="game-review-title"
+      describedBy="game-review-subtitle"
       className="game-review-dialog"
     >
       <div className="game-review-card">
@@ -102,8 +110,8 @@ const GameReview = ({ isOpen, onClose, onNewGame, classifications, moves, result
         </div>
 
         <div className="game-review-actions">
-          <button className="button-secondary" onClick={onClose}>Close</button>
-          <button className="button-primary" onClick={onNewGame}>New Game</button>
+          <button type="button" className="button-secondary" onClick={onClose}>Close</button>
+          <button type="button" className="button-primary" onClick={onNewGame}>New Game</button>
         </div>
       </div>
     </AccessibleDialog>

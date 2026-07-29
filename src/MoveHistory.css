@@ -269,26 +269,40 @@
   text-align: center;
 }
 
+.move-cell-wrapper {
+  padding: 2px 6px;
+}
+
 .move-cell {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 6px;
+  padding: 0;
   border-radius: 4px;
   transition: all 0.15s ease;
   cursor: default;
   overflow: hidden;
+  width: 100%;
 }
 
+button.move-cell,
 .move-cell-clickable {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
+button.move-cell:hover,
 .move-cell-clickable:hover {
   background-color: var(--bg-tertiary);
   transform: translateX(2px);
 }
 
+button.move-cell:focus-visible,
 .move-cell-clickable:focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 1px;

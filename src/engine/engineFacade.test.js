@@ -45,6 +45,40 @@ describe("createEngine('backend')", () => {
     expect(searchId).toBe(1);
   });
 
+  test('sendCommand stops an ongoing search before starting a new one', () => {
+    const engine = createEngine('backend', 'http://localhost:3001');
+    engine.sendCommand('go movetime 1000');
+    engine.sendCommand('go depth 12');
+
+    const socket = io.mock.results[0].value;
+    expect(socket.emit).toHaveBeenCalledWith('command', 'stop');
+    expect(socket.emit).toHaveBeenCalledWith('command', 'go depth 12');
+  });
+
+  test('sendCommand resets search tracking on stop and ucinewgame', () => {
+    const engine = createEngine('backend', 'http://localhost:3001');
+    engine.sendCommand('go movetime 1000');
+    engine.sendCommand('stop');
+
+    const socket = io.mock.results[0].value;
+    // Starting a new search after stop should NOT emit stop again
+    socket.emit.mockClear();
+    engine.sendCommand('go depth 12');
+    expect(socket.emit).not.toHaveBeenCalledWith('command', 'stop');
+  });
+
+  test('disconnect sends stop before disconnecting when a search is active', () => {
+    const engine = createEngine('backend', 'http://localhost:3001');
+    engine.sendCommand('go movetime 1000');
+
+    const socket = io.mock.results[0].value;
+    socket.emit.mockClear();
+    engine.disconnect();
+
+    expect(socket.emit).toHaveBeenCalledWith('command', 'stop');
+    expect(socket.disconnect).toHaveBeenCalled();
+  });
+
   test('onOutput forwards stockfish_output messages with the current searchId', () => {
     const engine = createEngine('backend', 'http://localhost:3001');
     const received = [];

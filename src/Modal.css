@@ -7,6 +7,13 @@
   max-width: 500px;
   max-height: calc(100dvh - 32px);
   overflow: auto;
+  outline: none;
+}
+
+.modal-dialog:focus-visible,
+.accessible-dialog:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 .modal-dialog::backdrop {

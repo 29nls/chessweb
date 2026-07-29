@@ -131,6 +131,28 @@ describe('GameReview — rendering with classifications', () => {
   });
 });
 
+describe('GameReview — ARIA', () => {
+  test('action buttons have explicit type="button"', () => {
+    renderGameReview();
+    const buttons = screen.getAllByRole('button');
+    buttons.forEach((btn) => {
+      expect(btn).toHaveAttribute('type', 'button');
+    });
+  });
+
+  test('accuracy cards is exposed as a region with an accessible label', () => {
+    renderGameReview();
+    const regions = screen.getAllByRole('region');
+    expect(regions.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('breakdown counts are exposed as lists', () => {
+    renderGameReview();
+    expect(screen.getByLabelText('White classified moves')).toBeInTheDocument();
+    expect(screen.getByLabelText('Black classified moves')).toBeInTheDocument();
+  });
+});
+
 describe('GameReview — interactive elements', () => {
   test('calls onClose when Close button clicked', () => {
     const onClose = jest.fn();

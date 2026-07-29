@@ -112,6 +112,12 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.breakdown-side ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
 .breakdown-count {
   display: flex;
   justify-content: space-between;

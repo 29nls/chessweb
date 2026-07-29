@@ -93,7 +93,7 @@ const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMo
     );
   };
 
-  const renderAlternatives = (whiteIdx, blackIdx) => {
+  const renderAlternatives = (rowNumber, whiteIdx, blackIdx) => {
     const whiteAlts = branchData[whiteIdx]?.alternatives || [];
     const blackAlts = blackIdx !== null ? (branchData[blackIdx]?.alternatives || []) : [];
     const allAlts = [];
@@ -110,14 +110,20 @@ const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMo
     if (allAlts.length === 0) return null;
 
     return (
-      <div className="move-alternatives">
+      <div className="move-alternatives" role="group" aria-label={`Alternative opening moves for move ${rowNumber}`}>
         {/* Tree branch connector */}
-        <div className="alt-connector" />
-        <div className="alt-items">
+        <div className="alt-connector" aria-hidden="true" />
+        <div className="alt-items" role="list">
           {allAlts.map((group) =>
             group.items.map((alt, ai) => (
-              <span key={alt.move + '-' + group.type + '-' + ai} className="alt-chip" title={`Common alternative in opening book`}>
-                <span className="alt-move">{alt.move}</span>
+              <span
+                key={alt.move + '-' + group.type + '-' + ai}
+                className="alt-chip"
+                role="listitem"
+                title={`Common alternative in opening book`}
+                aria-label={`${alt.move}, common alternative`}
+              >
+                <span className="alt-move" aria-hidden="true">{alt.move}</span>
               </span>
             ))
           )}
@@ -180,9 +186,9 @@ const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMo
       </div>
 
       {displayRows.length === 0 && searchQuery.trim() ? (
-        <div className="empty-move">No moves match &quot;{searchQuery}&quot;</div>
+        <div className="empty-move" role="status">No moves match &quot;{searchQuery}&quot;</div>
       ) : (
-      <div className="move-history-scroll" data-testid="move-list" role="list" aria-label="Game explorer tree">
+      <div className="move-history-scroll" data-testid="move-list" role="table" aria-label="Game explorer tree">
         <div className="move-row move-row-header" role="row">
           <div className="move-number" role="columnheader">#</div>
           <div role="columnheader">White</div>
@@ -193,44 +199,45 @@ const MoveHistory = ({ moves, classifications, currentMoveIndex = -1, onJumpToMo
             {/* Main move row */}
             <div
               className={`move-row tree-main-row ${row.white.idx === currentMoveIndex ? 'move-row-active' : ''}`}
-              role="listitem"
+              role="row"
               ref={row.white.idx === currentMoveIndex ? scrollRef : null}
             >
               <div className="move-number" role="cell">{row.number}.</div>
-              <div
-                className="move-cell move-cell-clickable"
-                role="cell"
-                onClick={() => onJumpToMove?.(row.white.idx)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onJumpToMove?.(row.white.idx); } }}
-                tabIndex={row.white.idx === currentMoveIndex ? -1 : 0}
-                aria-label={`Jump to move ${row.number}. ${row.white.san}`}
-              >
-                <span className="move-san">{row.white.san}</span>
-                {renderBadge(row.white.classification)}
-                {/* Opening label shown inline for the white move if it identifies a unique opening */}
-                {row.white.idx > 0 && renderOpeningLabel(row.white.idx + 1)}
+              <div role="cell" className="move-cell-wrapper">
+                <button
+                  type="button"
+                  className="move-cell move-cell-clickable"
+                  aria-label={`Jump to move ${row.number} (white): ${row.white.san}`}
+                  aria-current={row.white.idx === currentMoveIndex ? 'true' : undefined}
+                  onClick={() => onJumpToMove?.(row.white.idx)}
+                  tabIndex={row.white.idx === currentMoveIndex ? -1 : undefined}
+                >
+                  <span className="move-san">{row.white.san}</span>
+                  {renderBadge(row.white.classification)}
+                  {row.white.idx > 0 && renderOpeningLabel(row.white.idx + 1)}
+                </button>
               </div>
-              <div
-                className={`move-cell ${row.black ? 'move-cell-clickable' : ''}`}
-                role="cell"
-                onClick={() => row.black && onJumpToMove?.(row.black.idx)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.black && onJumpToMove?.(row.black.idx); } }}
-                tabIndex={row.black && row.black.idx !== currentMoveIndex ? 0 : -1}
-                aria-label={row.black ? `Jump to move ${row.number}... ${row.black.san}` : undefined}
-              >
+              <div role="cell" className="move-cell-wrapper">
                 {row.black ? (
-                  <>
+                  <button
+                    type="button"
+                    className="move-cell move-cell-clickable"
+                    aria-label={`Jump to move ${row.number} (black): ${row.black.san}`}
+                    aria-current={row.black.idx === currentMoveIndex ? 'true' : undefined}
+                    onClick={() => onJumpToMove?.(row.black.idx)}
+                    tabIndex={row.black.idx === currentMoveIndex ? -1 : undefined}
+                  >
                     <span className="move-san">{row.black.san}</span>
                     {renderBadge(row.black.classification)}
                     {renderOpeningLabel(row.black.idx + 1)}
-                  </>
+                  </button>
                 ) : (
                   <span className="empty-move" style={{ padding: 0 }}>...</span>
                 )}
               </div>
             </div>
             {/* Alternatives row — shows tree branches from openings book */}
-            {renderAlternatives(row.white.idx, row.black?.idx)}
+            {renderAlternatives(row.number, row.white.idx, row.black?.idx)}
           </React.Fragment>
         ))}
       </div>

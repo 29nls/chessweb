@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import ChessboardContainer from './ChessboardContainer';
 
 // ── Mocks ──────────────────────────────────────────────
@@ -645,5 +645,110 @@ describe('ChessboardContainer — React.memo prevents unnecessary re-renders', (
 
     expect(getChessboard().getAttribute('data-orientation')).not.toBe(initialOrientation);
     expect(getChessboard().getAttribute('data-orientation')).toBe('black');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// KEYBOARD NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+
+describe('ChessboardContainer — keyboard navigation', () => {
+  const getWrapper = () => screen.getByRole('group');
+  const getKeyboardSquareStyle = () => {
+    const squares = JSON.parse(getChessboard().getAttribute('data-squares'));
+    return squares;
+  };
+
+  test('wrapper is focusable and has accessible label', () => {
+    renderBoard();
+    const wrapper = getWrapper();
+    expect(wrapper).toHaveAttribute('tabIndex', '0');
+    expect(wrapper.getAttribute('aria-label')).toMatch(/Chessboard/);
+  });
+
+  test('focus starts keyboard cursor on a useful square', () => {
+    renderBoard();
+    act(() => { getWrapper().focus(); });
+    // Starting position is white to move; the cursor should be on a white piece square
+    const squares = getKeyboardSquareStyle();
+    const focusedSquare = Object.entries(squares).find(([, style]) => style.boxShadow);
+    expect(focusedSquare).toBeTruthy();
+    expect(focusedSquare[0]).toBe('e2');
+  });
+
+  test('arrow keys move the keyboard square in white orientation', () => {
+    renderBoard();
+    act(() => { getWrapper().focus(); });
+
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowRight' }); });
+    let squares = getKeyboardSquareStyle();
+    expect(squares.f2).toHaveProperty('boxShadow');
+
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowUp' }); });
+    squares = getKeyboardSquareStyle();
+    expect(squares.f3).toHaveProperty('boxShadow');
+  });
+
+  test('Enter triggers a move from keyboard cursor', () => {
+    const onDrop = jest.fn(() => true);
+    renderBoard({ onDrop });
+
+    act(() => { getWrapper().focus(); });
+    // Select e2, move the cursor to e4, then confirm with Enter
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'Enter' }); });
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowUp' }); });
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowUp' }); });
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'Enter' }); });
+
+    expect(onDrop).toHaveBeenCalledWith({ sourceSquare: 'e2', targetSquare: 'e4' });
+  });
+
+  test('Space also selects/moves from keyboard cursor', () => {
+    const onDrop = jest.fn(() => true);
+    renderBoard({ onDrop });
+
+    act(() => { getWrapper().focus(); });
+    // Select e2, move the cursor to e3, then confirm with Space
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'Enter' }); });
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowUp' }); });
+    act(() => { fireEvent.keyDown(getWrapper(), { key: ' ' }); });
+
+    expect(onDrop).toHaveBeenCalledWith({ sourceSquare: 'e2', targetSquare: 'e3' });
+  });
+
+  test('Escape clears selected square and legal moves', () => {
+    renderBoard();
+    act(() => { getWrapper().focus(); });
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'Enter' }); }); // select e2
+    // Legal move dots should be present
+    expect(JSON.parse(getChessboard().getAttribute('data-squares'))).toHaveProperty('e3');
+
+    // Move keyboard cursor away so the original square only keeps the selected highlight
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowRight' }); });
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'Escape' }); });
+    const squares = JSON.parse(getChessboard().getAttribute('data-squares'));
+    // The selected square highlight and legal move dots are removed
+    expect(squares).not.toHaveProperty('e2');
+    expect(squares).not.toHaveProperty('e3');
+  });
+
+  test('arrow keys invert when board orientation is black', () => {
+    renderBoard({ boardOrientation: 'black' });
+    act(() => { getWrapper().focus(); });
+
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowRight' }); });
+    const squares = getKeyboardSquareStyle();
+    // From e2, black orientation right should move toward the d-file
+    expect(squares.d2).toHaveProperty('boxShadow');
+  });
+
+  test('keyboard navigation is disabled in spectator mode', () => {
+    renderBoard({ isSpectator: true });
+    act(() => { getWrapper().focus(); });
+
+    act(() => { fireEvent.keyDown(getWrapper(), { key: 'ArrowUp' }); });
+    const squares = getKeyboardSquareStyle();
+    const focusedSquare = Object.entries(squares).find(([, style]) => style.boxShadow);
+    expect(focusedSquare).toBeFalsy();
   });
 });

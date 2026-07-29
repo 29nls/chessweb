@@ -27,8 +27,11 @@ const AppLayout = ({ children }) => {
 
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <header className="App-header">
-        <nav className="App-header-nav">
+        <nav className="App-header-nav" aria-label="Primary navigation">
           {!isHome && (
             <button
               onClick={() => navigate('/')}
@@ -48,7 +51,9 @@ const AppLayout = ({ children }) => {
           </button>
         </nav>
       </header>
-      {children}
+      <div id="main-content" tabIndex={-1} className="app-main">
+        {children}
+      </div>
     </div>
   );
 };

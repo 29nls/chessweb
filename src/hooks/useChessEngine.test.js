@@ -259,4 +259,80 @@ describe('useChessEngine', () => {
 
     expect(cb).not.toHaveBeenCalled();
   });
+
+  test('cleanup stops the engine and disconnects', () => {
+    const { result, unmount } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', multiPv: 1 }));
+    connectEngine();
+
+    act(() => { result.current.sendCommand('go depth 12'); });
+    unmount();
+
+    expect(engineMock.sendCommand).toHaveBeenCalledWith('stop');
+    expect(engineMock.sendCommand).toHaveBeenCalledWith('ucinewgame');
+    expect(engineMock.disconnect).toHaveBeenCalled();
+  });
+
+  describe('page unload cleanup', () => {
+    let addEventListenerSpy;
+    let removeEventListenerSpy;
+    let registeredListeners;
+
+    beforeEach(() => {
+      registeredListeners = {};
+
+      addEventListenerSpy = jest.spyOn(window, 'addEventListener').mockImplementation((event, handler) => {
+        registeredListeners[event] = handler;
+      });
+      removeEventListenerSpy = jest.spyOn(window, 'removeEventListener').mockImplementation((event) => {
+        delete registeredListeners[event];
+      });
+    });
+
+    afterEach(() => {
+      addEventListenerSpy.mockRestore();
+      removeEventListenerSpy.mockRestore();
+    });
+
+    test('registers beforeunload and pagehide listeners on mount', () => {
+      renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', multiPv: 1 }));
+
+      expect(addEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+      expect(addEventListenerSpy).toHaveBeenCalledWith('pagehide', expect.any(Function));
+    });
+
+    test('removes beforeunload and pagehide listeners on unmount', () => {
+      const { unmount } = renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', multiPv: 1 }));
+
+      unmount();
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('beforeunload', expect.any(Function));
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('pagehide', expect.any(Function));
+    });
+
+    test('triggers engine cleanup when beforeunload fires', () => {
+      renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', multiPv: 1 }));
+
+      act(() => {
+        const handler = registeredListeners.beforeunload;
+        if (handler) handler(new Event('beforeunload'));
+      });
+
+      expect(engineMock.sendCommand).toHaveBeenCalledWith('stop');
+      expect(engineMock.sendCommand).toHaveBeenCalledWith('ucinewgame');
+      expect(engineMock.disconnect).toHaveBeenCalled();
+    });
+
+    test('triggers engine cleanup when pagehide fires', () => {
+      renderHook(() => useChessEngine({ threads: 1, hashSize: 64, fen: 'start', multiPv: 1 }));
+
+      act(() => {
+        const handler = registeredListeners.pagehide;
+        if (handler) handler(new Event('pagehide'));
+      });
+
+      expect(engineMock.sendCommand).toHaveBeenCalledWith('stop');
+      expect(engineMock.sendCommand).toHaveBeenCalledWith('ucinewgame');
+      expect(engineMock.disconnect).toHaveBeenCalled();
+    });
+  });
 });

@@ -10,7 +10,7 @@ import {
 import { useEvalSwing } from './hooks/useEvalSwing';
 import './EvaluationSection.css';
 
-const EvaluationSection = ({ evaluation, multiPvLines = [], whiteHeight = 50, isDepthAnalysisEnabled, onClickPvMove }) => {
+const EvaluationSection = ({ evaluation, multiPvLines = [], whiteHeight = 50, isDepthAnalysisEnabled, onClickPvMove, isAnalyzing = false }) => {
   const formatEval = (ev) => {
     if (!ev || ev.score === null) return '+0.00';
     if (ev.type === 'cp') {
@@ -52,6 +52,14 @@ const EvaluationSection = ({ evaluation, multiPvLines = [], whiteHeight = 50, is
       {/* Particle burst effect — rendered when a big eval swing is detected */}
       {swingKey > 0 && (
         <EvalBarParticles key={swingKey} evaluation={evaluation} />
+      )}
+
+      {/* Loading indicator */}
+      {isAnalyzing && (
+        <div className="analyzing-indicator" role="status" aria-live="polite">
+          <span className="analyzing-spinner" aria-hidden="true" />
+          <span className="analyzing-text">Analysing position…</span>
+        </div>
       )}
 
       {/* Visual Evaluation Bar */}

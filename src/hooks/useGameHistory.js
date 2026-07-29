@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
+import { validateFen, validatePgn } from '../lib/validation';
 
 /**
  * useGameHistory
@@ -36,6 +37,15 @@ export function useGameHistory() {
     return newHistory.length; // new pointer value
   }, []);
 
+  const setPositionOnEngine = useCallback((sendCommand, newFen) => {
+    if (typeof sendCommand === 'function') {
+      // useChessEngine.sendCommand already sends 'stop' before 'position',
+      // so we only need to reset the engine state and set the new position.
+      sendCommand('ucinewgame');
+      sendCommand(`position fen ${newFen}`);
+    }
+  }, []);
+
   const undo = useCallback((currentPointer, currentHistory, currentMoves, sendCommand) => {
     if (currentPointer > 0) {
       const newPointer = currentPointer - 1;
@@ -58,14 +68,13 @@ export function useGameHistory() {
       setFen(newFen);
       setGame(newGame);
       setLastMove(lastMoveSquares);
-      sendCommand('ucinewgame');
-      sendCommand(`position fen ${newFen}`);
+      setPositionOnEngine(sendCommand, newFen);
       return newPointer;
     } else {
       toast.info('No moves to undo.');
       return currentPointer;
     }
-  }, []);
+  }, [setPositionOnEngine]);
 
   const redo = useCallback((currentPointer, currentHistory, currentMoves, sendCommand) => {
     if (currentPointer < currentHistory.length - 1) {
@@ -89,15 +98,14 @@ export function useGameHistory() {
       setFen(newFen);
       setGame(newGame);
       setLastMove(lastMoveSquares);
-      sendCommand('ucinewgame');
-      sendCommand(`position fen ${newFen}`);
+      setPositionOnEngine(sendCommand, newFen);
       // Bugfix: jangan selalu return GOOD — biarkan engine generate ulang klasifikasi
       return { newPointer, addLabel: null };
     } else {
       toast.info('No moves to redo.');
       return { newPointer: currentPointer, addLabel: null };
     }
-  }, []);
+  }, [setPositionOnEngine]);
 
   /**
    * Apply a sequence of moves in batch — used for playing PV/engine lines.
@@ -135,9 +143,8 @@ export function useGameHistory() {
     setGame(gameCopy);
     setLastMove(lastMoveSquares);
 
-    sendCommand('ucinewgame');
-    sendCommand(`position fen ${newFen}`);
-  }, []);
+    setPositionOnEngine(sendCommand, newFen);
+  }, [setPositionOnEngine]);
 
   const jumpToMove = useCallback((targetPointer, currentHistory, currentMoves, sendCommand) => {
     if (targetPointer < 0 || targetPointer >= currentHistory.length) return;
@@ -159,9 +166,8 @@ export function useGameHistory() {
     setFen(newFen);
     setGame(newGame);
     setLastMove(lastMoveSquares);
-    sendCommand('ucinewgame');
-    sendCommand(`position fen ${newFen}`);
-  }, []);
+    setPositionOnEngine(sendCommand, newFen);
+  }, [setPositionOnEngine]);
 
   const reset = useCallback((sendCommand) => {
     const newGame = new Chess();
@@ -173,12 +179,19 @@ export function useGameHistory() {
     setMoveHistory([initialFen]);
     setHistoryPointer(0);
     toast.info('New game started.');
-    sendCommand('ucinewgame');
+    if (typeof sendCommand === 'function') {
+      setPositionOnEngine(sendCommand, initialFen);
+    }
     return initialFen;
-  }, []);
+  }, [setPositionOnEngine]);
 
   const importFen = useCallback((fenStr, sendCommand) => {
-    const newGame = new Chess(fenStr);
+    const validation = validateFen(fenStr);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Invalid FEN');
+      throw new Error(validation.error || 'Invalid FEN');
+    }
+    const newGame = new Chess(validation.normalized);
     const newFen = newGame.fen();
     setGame(newGame);
     setFen(newFen);
@@ -186,11 +199,16 @@ export function useGameHistory() {
     setMoveHistory([newFen]);
     setHistoryPointer(0);
     setMoves([]);
-    sendCommand(`position fen ${newFen}`);
+    setPositionOnEngine(sendCommand, newFen);
     return newFen;
-  }, []);
+  }, [setPositionOnEngine]);
 
   const importPgn = useCallback((pgnStr, sendCommand) => {
+    const validation = validatePgn(pgnStr);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Invalid PGN');
+      throw new Error(validation.error || 'Invalid PGN');
+    }
     const newGame = new Chess();
     newGame.loadPgn(pgnStr);
     const newFen = newGame.fen();
@@ -210,9 +228,9 @@ export function useGameHistory() {
     setLastMove(null);
     setMoveHistory(newMoveHistory);
     setHistoryPointer(newMoveHistory.length - 1);
-    sendCommand(`position fen ${newFen}`);
+    setPositionOnEngine(sendCommand, newFen);
     return newFen;
-  }, []);
+  }, [setPositionOnEngine]);
 
   // ═════════════════════════════════════════════════════════
   // CRITICAL: Memoized return object — keystone for re-render performance.
@@ -237,6 +255,7 @@ export function useGameHistory() {
     reset,
     importFen,
     importPgn,
+    setPositionOnEngine,
   }), [
     game,
     fen,
@@ -254,5 +273,6 @@ export function useGameHistory() {
     reset,
     importFen,
     importPgn,
+    setPositionOnEngine,
   ]);
 }

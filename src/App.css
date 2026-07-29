@@ -92,6 +92,7 @@
   align-items: center;
   opacity: 1;
   perspective: 800px;
+  touch-action: manipulation;
 }
 
 /* 3D card-flip animation for board orientation change */
@@ -200,6 +201,8 @@
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .icon-button:hover {
@@ -248,6 +251,7 @@
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .toggle-switch input {
@@ -340,6 +344,7 @@ input[type="range"]::-moz-range-thumb {
   background-position: right 12px center;
   cursor: pointer;
   transition: border-color 0.2s, background-color 0.2s;
+  min-height: 44px;
 }
 
 .control-group select:hover {
@@ -349,6 +354,13 @@ input[type="range"]::-moz-range-thumb {
 .control-group select:focus {
   outline: none;
   border-color: var(--accent-primary);
+}
+
+.control-group select:disabled,
+input[type="range"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: var(--bg-secondary);
 }
 
 /* Global button styles */
@@ -361,12 +373,20 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .button-primary {
   background: linear-gradient(135deg, var(--accent-primary), var(--online-accent));
   color: #fff;
   border: none;
+}
+
+/* Dark mode: use darker gradient stops so white button text passes WCAG AA */
+[data-theme='dark'] .button-primary {
+  background: linear-gradient(135deg, #2563EB, #059669);
 }
 
 .button-primary:hover {
@@ -823,6 +843,9 @@ input[type="range"]::-moz-range-thumb {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
 }
 
 .button-danger:hover {
@@ -1135,50 +1158,12 @@ input[type="range"]::-moz-range-thumb {
 
   @keyframes board-flip-out {
     0% { transform: none; opacity: 1; }
-    100% {    transform: none; opacity: 1;
+    100% { transform: none; opacity: 1; }
   }
-}
-
-/* ===== 404 Not Found Page ===== */
-
-.not-found-page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  padding: 2rem;
-  text-align: center;
-  gap: 1rem;
-  animation: page-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.not-found-page h1 {
-  font-size: 5rem;
-  font-weight: 800;
-  color: var(--border-color);
-  margin: 0;
-  line-height: 1;
-  letter-spacing: -0.04em;
-}
-
-.not-found-page p {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.not-found-page .button-primary {
-  margin-top: 0.5rem;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
 
   @keyframes board-flip-in {
     0% { transform: none; opacity: 1; }
-    100% {    transform: none; opacity: 1;
+    100% { transform: none; opacity: 1; }
   }
 }
 
@@ -1218,4 +1203,186 @@ input[type="range"]::-moz-range-thumb {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* ===== Collapsible Panel (mobile) ===== */
+
+.collapsible-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-toggle {
+  display: none; /* hidden on desktop */
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.95em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  min-height: 44px;
+  text-align: left;
+}
+
+.cp-toggle:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-tertiary);
+}
+
+.cp-toggle:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.cp-toggle-icon {
+  flex-shrink: 0;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+}
+
+.cp-toggle-title {
+  flex: 1;
+}
+
+.cp-chevron {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+  color: var(--text-secondary);
+}
+
+.cp-chevron-open {
+  transform: rotate(180deg);
+}
+
+.cp-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.35s ease, opacity 0.35s ease, padding 0.35s ease;
+  opacity: 0;
+}
+
+.cp-content > * {
+  min-height: 0;
+  visibility: hidden;
+  transition: visibility 0.35s;
+}
+
+/* Expanded state */
+.cp-expanded .cp-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.cp-expanded .cp-content > * {
+  visibility: visible;
+}
+
+/* Desktop: always expanded, toggle hidden */
+.cp-desktop .cp-toggle {
+  display: none;
+}
+
+.cp-desktop .cp-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.cp-desktop .cp-content > * {
+  visibility: visible;
+}
+
+/* Mobile: show toggle, collapse by default */
+@media (max-width: 640px) {
+  .cp-toggle {
+    display: flex;
+  }
+
+  .collapsible-panel:not(.cp-expanded) .cp-content {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+
+  .collapsible-panel:not(.cp-expanded) .cp-content > * {
+    visibility: hidden;
+  }
+
+  /* Add a small gap between toggle and content when expanded */
+  .cp-expanded .cp-content {
+    margin-top: 8px;
+  }
+}
+
+/* ===== Accessibility: skip link & focus styles ===== */
+
+.app-shell {
+  position: relative;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent-primary);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 0 0 8px 0;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 9999;
+  transition: top 0.2s;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.icon-button:focus-visible,
+.button-primary:focus-visible,
+.button-secondary:focus-visible,
+.control-group select:focus-visible,
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Show focus on the toggle track when the hidden checkbox is focused */
+.toggle-switch input:focus + .slider {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Keyboard focus ring for the chessboard container */
+.chessboard-container-wrapper:focus {
+  outline: none;
+}
+
+.chessboard-container-wrapper:focus-visible {
+  outline: 3px solid var(--accent-primary);
+  outline-offset: 4px;
+  border-radius: 8px;
 }

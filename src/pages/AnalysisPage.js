@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
-import { Zap } from 'react-feather';
+import { Zap, BarChart2, Play } from 'react-feather';
 import Modal from '../Modal';
 import AccessibleDialog from '../AccessibleDialog';
 import MoveHistory from '../MoveHistory';
@@ -13,9 +13,11 @@ import ErrorBoundary from '../ErrorBoundary';
 import { playMoveSound, findCheckedKingSquare, setMuted } from '../lib/sound';
 import OpeningExplorer from '../components/OpeningExplorer';
 import GameReview from '../components/GameReview';
+import CollapsiblePanel from '../components/CollapsiblePanel';
 import { buildPgnWithNag } from '../MoveClassification';
 import { copyShareLink, decodeGameFromParams } from '../lib/share';
 import { saveGame } from '../lib/gameHistory';
+import { validateFen, validatePgn, clampEngineSettings } from '../lib/validation';
 
 // Lazy load heavy components for better initial load time
 const EvaluationSection = React.lazy(() => import('../EvaluationSection'));
@@ -61,11 +63,17 @@ export default function AnalysisPage() {
   const [isMuted, setIsMuted] = useState(false);
   useEffect(() => { setMuted(isMuted); }, [isMuted]);
 
-  // Engine settings
-  const [movetime, setMovetime] = useState(1000);
-  const [depth, setDepth] = useState(20);
-  const [threads, setThreads] = useState(1);
-  const [hashSize, setHashSize] = useState(64);
+  // Engine settings (clamped to safe ranges)
+  const [movetime, setMovetimeRaw] = useState(1000);
+  const [depth, setDepthRaw] = useState(20);
+  const [threads, setThreadsRaw] = useState(1);
+  const [hashSize, setHashSizeRaw] = useState(64);
+
+  // Enforce engine resource limits
+  const setMovetime = useCallback((value) => setMovetimeRaw(clampEngineSettings({ movetime: value }).movetime), []);
+  const setDepth = useCallback((value) => setDepthRaw(clampEngineSettings({ depth: value }).depth), []);
+  const setThreads = useCallback((value) => setThreadsRaw(clampEngineSettings({ threads: value }).threads), []);
+  const setHashSize = useCallback((value) => setHashSizeRaw(clampEngineSettings({ hashSize: value }).hashSize), []);
 
   const maxThreads = navigator.hardwareConcurrency || 4;
   const maxHashSize = (() => {
@@ -92,13 +100,23 @@ export default function AnalysisPage() {
     }
   }, [history]);
 
+  // Clamp settings at render time too (defense-in-depth for external props)
+  const safeSettings = clampEngineSettings({ threads, hashSize, multiPv });
+
   const engine = useChessEngine({
-    threads,
-    hashSize,
+    threads: safeSettings.threads,
+    hashSize: safeSettings.hashSize,
     fen: history.fen,
     onBestMove: handleBestMove,
-    multiPv,
+    multiPv: safeSettings.multiPv,
   });
+
+  // Surface engine errors to the user
+  useEffect(() => {
+    if (engine.engineError) {
+      toast.error(`Engine error: ${engine.engineError}`);
+    }
+  }, [engine.engineError]);
 
   // ── Derived state ─────────────────────────────────────────
   let whiteHeight = 50;
@@ -118,12 +136,19 @@ export default function AnalysisPage() {
     const params = new URLSearchParams(window.location.search);
     const { pgn: sharedPgn, result: sharedResult } = decodeGameFromParams(params);
     if (sharedPgn) {
+      const validation = validatePgn(sharedPgn);
+      if (!validation.valid) {
+        toast.error(`Invalid shared PGN: ${validation.error}`);
+        console.warn('Failed to import shared game:', validation.error);
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
       try {
         history.importPgn(sharedPgn, engine.sendCommand);
         if (sharedResult) {
           setGameResult(sharedResult);
           if (sharedResult.winner === 'draw') {
-            setGameOverBanner('🤝 ' + (sharedResult.reason || 'Draw'));
+            setGameOverBanner(' ' + (sharedResult.reason || 'Draw'));
           } else {
             const winnerLabel = sharedResult.winner === 'white' ? 'White' : 'Black';
             setGameOverBanner(`♛ ${winnerLabel} wins!` + (sharedResult.reason ? ' (' + sharedResult.reason + ')' : ''));
@@ -133,6 +158,7 @@ export default function AnalysisPage() {
         window.history.replaceState({}, document.title, window.location.pathname);
       } catch (err) {
         console.warn('Failed to import shared game:', err);
+        toast.error('Failed to import shared game');
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,14 +174,13 @@ export default function AnalysisPage() {
 
   // ── Auto-move ─────────────────────────────────────────────
   const makeAutoOpponentMove = useCallback(() => {
-    engine.sendCommand('stop');
     engine.sendCommand(`position fen ${history.fen}`);
     if (isDepthAnalysisEnabled) {
-      engine.sendCommand(`go depth ${depth}`);
+      engine.sendCommand(`go depth ${safeSettings.depth}`);
     } else {
-      engine.sendCommand(`go movetime ${movetime}`);
+      engine.sendCommand(`go movetime ${safeSettings.movetime}`);
     }
-  }, [history.fen, isDepthAnalysisEnabled, depth, movetime, engine]);
+  }, [history.fen, isDepthAnalysisEnabled, safeSettings.depth, safeSettings.movetime, engine]);
 
   // ── Move handlers ─────────────────────────────────────────
   const executeMove = useCallback((sourceSquare, targetSquare, promotion = 'q') => {
@@ -370,16 +395,25 @@ export default function AnalysisPage() {
   const handleFenClick = () => { setFenInput(history.game.fen()); setShowFenModal(true); };
 
   const handleImportFen = () => {
+    // Validate FEN before touching engine or game state so an invalid input
+    // does not clear the current position/evaluation.
+    const validation = validateFen(fenInput);
+    if (!validation.valid) {
+      console.warn('Failed to import FEN:', validation.error);
+      toast.error(validation.error || 'Invalid FEN string.');
+      return;
+    }
+
     try {
       setGameOverBanner(null);
       engine.resetEval();
       engine.resetClassifications();
-      history.importFen(fenInput, engine.sendCommand);
+      history.importFen(validation.normalized, engine.sendCommand);
       toast.success('FEN imported successfully!');
       setShowFenModal(false);
     } catch (err) {
       console.warn('Failed to import FEN:', err);
-      toast.error('Invalid FEN string.');
+      toast.error(err?.message || 'Invalid FEN string.');
     }
   };
 
@@ -436,7 +470,10 @@ export default function AnalysisPage() {
       history.importPgn(pgnInput, engine.sendCommand);
       toast.success('PGN imported successfully!');
       setShowPgnModal(false);
-    } catch (err) { console.warn('Failed to import PGN:', err); toast.error('Invalid PGN string.'); }
+    } catch (err) {
+      console.warn('Failed to import PGN:', err);
+      toast.error(err?.message || 'Invalid PGN string.');
+    }
   };
 
   return (
@@ -453,13 +490,16 @@ export default function AnalysisPage() {
         <div className="App">
       <main className="App-body">
         <Suspense fallback={<PanelSkeleton />}>
-          <EvaluationSection
-            evaluation={engine.stockfishEval}
-            whiteHeight={whiteHeight}
-            isDepthAnalysisEnabled={isDepthAnalysisEnabled}
-            multiPvLines={engine.multiPvLines}
-            onClickPvMove={playPvLine}
-          />
+          <CollapsiblePanel title="Evaluation" icon={<BarChart2 size={18} />} gridArea="evaluation">
+            <EvaluationSection
+              evaluation={engine.stockfishEval}
+              whiteHeight={whiteHeight}
+              isDepthAnalysisEnabled={isDepthAnalysisEnabled}
+              multiPvLines={engine.multiPvLines}
+              onClickPvMove={playPvLine}
+              isAnalyzing={engine.isAnalyzing}
+            />
+          </CollapsiblePanel>
         </Suspense>
 
         <div style={{ gridArea: 'chessboard' }}>
@@ -483,32 +523,35 @@ export default function AnalysisPage() {
         </div>
 
         <Suspense fallback={<PanelSkeleton />}>
-          <Controls
-            onReset={requestReset}
-            onFlip={flipBoard}
-            onUndo={undoMove}
-            onRedo={redoMove}
-            canUndo={history.historyPointer > 0}
-            canRedo={history.historyPointer < history.moveHistory.length - 1}
-            engineSettings={{ movetime, threads, hashSize, maxThreads, maxHashSize, depth, isDepthAnalysisEnabled }}
-            setEngineSettings={{ setMovetime, setThreads, setHashSize, setDepth, setIsDepthAnalysisEnabled }}
-            onFenClick={handleFenClick}
-            onPgnClick={handlePgnClick}
-            isAutoMoveEnabled={isAutoMoveEnabled}
-            setIsAutoMoveEnabled={setIsAutoMoveEnabled}
-            userColor={userColor}
-            setUserColor={setUserColor}
-            backendUrl={engine.backendUrl}
-            engineMode={engine.engineMode}
-            isOnlineMode={false}
-            multiPv={multiPv}
-            onMultiPvChange={handleMultiPvChange}
-            showArrow={showArrow}
-            onShowArrowChange={setShowArrow}
-            onKeyboardShortcuts={() => setShowShortcutGuide(true)}
-            isMuted={isMuted}
-            onMuteChange={setIsMuted}
-          />
+          <CollapsiblePanel title="Controls" icon={<Play size={18} />} gridArea="controls">
+            <Controls
+              onReset={requestReset}
+              onFlip={flipBoard}
+              onUndo={undoMove}
+              onRedo={redoMove}
+              canUndo={history.historyPointer > 0}
+              canRedo={history.historyPointer < history.moveHistory.length - 1}
+              engineSettings={{ movetime, threads, hashSize, maxThreads, maxHashSize, depth, isDepthAnalysisEnabled }}
+              setEngineSettings={{ setMovetime, setThreads, setHashSize, setDepth, setIsDepthAnalysisEnabled }}
+              onFenClick={handleFenClick}
+              onPgnClick={handlePgnClick}
+              isAutoMoveEnabled={isAutoMoveEnabled}
+              setIsAutoMoveEnabled={setIsAutoMoveEnabled}
+              userColor={userColor}
+              setUserColor={setUserColor}
+              backendUrl={engine.backendUrl}
+              engineMode={engine.engineMode}
+              isOnlineMode={false}
+              multiPv={multiPv}
+              onMultiPvChange={handleMultiPvChange}
+              showArrow={showArrow}
+              onShowArrowChange={setShowArrow}
+              onKeyboardShortcuts={() => setShowShortcutGuide(true)}
+              isMuted={isMuted}
+              onMuteChange={setIsMuted}
+              isAnalyzing={engine.isAnalyzing}
+            />
+          </CollapsiblePanel>
         </Suspense>
 
         <OpeningExplorer moves={history.moves} />

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import './Modal.css';
+import { useDialogFocus } from './hooks/useDialogFocus';
 
 /**
  * AccessibleDialog – A reusable wrapper around native <dialog> that handles
@@ -7,27 +8,17 @@ import './Modal.css';
  * Extracted from OnlineLobby.js so all modals use the same accessible pattern.
  */
 const AccessibleDialog = ({ isOpen, onClose, labelledBy, describedBy, children, className = '' }) => {
-  const dialogRef = useRef(null);
-  const previousFocusRef = useRef(null);
+  const dialogRef = useDialogFocus(isOpen);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (isOpen) {
-      if (!dialog.open) {
-        previousFocusRef.current = document.activeElement;
-        dialog.showModal();
-      }
-    } else {
-      if (dialog.open) {
-        dialog.close();
-        // Restore focus to the element that triggered the dialog
-        if (previousFocusRef.current && previousFocusRef.current.focus) {
-          previousFocusRef.current.focus();
-        }
-      }
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
     }
-  }, [isOpen]);
+  }, [isOpen, dialogRef]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -54,6 +45,8 @@ const AccessibleDialog = ({ isOpen, onClose, labelledBy, describedBy, children, 
       className={`accessible-dialog ${className}`}
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
+      aria-modal="true"
+      tabIndex={-1}
     >
       {children}
     </dialog>

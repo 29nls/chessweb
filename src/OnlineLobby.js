@@ -2,20 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { Wifi, Copy, Globe, Eye, Users } from 'react-feather';
 import { useLobbyGames } from './hooks/useLobbyGames';
+import { TIME_CONTROL_PRESETS } from './lib/onlineGameUtils';
 import AccessibleDialog from './AccessibleDialog';
 import './OnlineLobby.css';
 
 /**
  * OnlineLobby – Modal UI for creating/joining online games and spectating.
  */
-const TIME_CONTROL_OPTIONS = [
-  { label: 'Untimed', initialMs: 0 },
-  { label: '1 min', initialMs: 60 * 1000 },
-  { label: '3 min', initialMs: 3 * 60 * 1000 },
-  { label: '5 min', initialMs: 5 * 60 * 1000 },
-  { label: '10 min', initialMs: 10 * 60 * 1000 },
-  { label: '30 min', initialMs: 30 * 60 * 1000 },
-];
 
 const OnlineLobby = ({
   isOpen,
@@ -171,7 +164,7 @@ const OnlineLobby = ({
                 <div className="lobby-time-control">
                   <label className="lobby-time-label">Time Control</label>
                   <div className="lobby-time-options">
-                    {TIME_CONTROL_OPTIONS.map(opt => (
+                    {TIME_CONTROL_PRESETS.map(opt => (
                       <button
                         key={opt.label}
                         className={`lobby-time-btn ${selectedTimeMs === opt.initialMs ? 'active' : ''}`}

@@ -20,6 +20,7 @@ const WORKER_URL = process.env.PUBLIC_URL
 let worker = null;
 let ready = false;
 let restartTimer = null;
+let pendingStopTimer = null;
 const outputListeners = new Set();
 const readyListeners = new Set();
 
@@ -30,6 +31,7 @@ const readyListeners = new Set();
 // output from a superseded analysis.
 let searchIdCounter = 0;
 let currentSearchId = null;
+let isSearching = false;
 
 // ── Info throttling ──────────────────────────────────────
 // Stockfish emits hundreds of `info` lines per second during analysis.
@@ -41,6 +43,17 @@ let throttledInfo = null;
 let infoTimer = null;
 const INFO_THROTTLE_MS = 80;
 
+
+// ── Compiled regex patterns ──────────────────────────────
+// Pre-compiled for handleLine, which is called hundreds of times/sec
+// during Stockfish analysis. Avoids re-creating regex objects on every call.
+const RE_PV = / pv (.+)/;
+const RE_SCORE = /score (cp|mate) (-?\d+)/;
+const RE_DEPTH = /depth (\d+)/;
+const RE_NODES = /nodes (\d+)/;
+const RE_NPS = /nps (\d+)/;
+const RE_TBHITS = /tbhits (\d+)/;
+const RE_MULTIPV = /multipv (\d+)/;
 
 function parse(raw) {
   if (!raw) return;
@@ -57,13 +70,13 @@ function parse(raw) {
 
 function handleLine(line) {
   if (line.startsWith('info')) {
-    const matchPv = line.match(/ pv (.+)/);
-    const matchScore = line.match(/score (cp|mate) (-?\d+)/);
-    const matchDepth = line.match(/depth (\d+)/);
-    const matchNodes = line.match(/nodes (\d+)/);
-    const matchNps = line.match(/nps (\d+)/);
-    const matchtbhits = line.match(/tbhits (\d+)/);
-    const matchMultiPv = line.match(/multipv (\d+)/);
+    const matchPv = line.match(RE_PV);
+    const matchScore = line.match(RE_SCORE);
+    const matchDepth = line.match(RE_DEPTH);
+    const matchNodes = line.match(RE_NODES);
+    const matchNps = line.match(RE_NPS);
+    const matchtbhits = line.match(RE_TBHITS);
+    const matchMultiPv = line.match(RE_MULTIPV);
     emitInfo({
       type: 'info',
       searchId: currentSearchId,
@@ -139,7 +152,14 @@ function flushPendingInfo() {
 
 function start() {
   if (worker) return;
-  worker = new Worker(WORKER_URL);
+  try {
+    worker = new Worker(WORKER_URL);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[BrowserEngine] failed to load worker:', err.message);
+    emit({ type: 'error', message: `Failed to load Stockfish worker: ${err.message}` });
+    return;
+  }
   worker.onmessage = (e) => parse(typeof e.data === 'string' ? e.data : e.data?.data);
   worker.onerror = (err) => {
     // eslint-disable-next-line no-console
@@ -154,12 +174,17 @@ function stop() {
     clearTimeout(restartTimer);
     restartTimer = null;
   }
+  if (pendingStopTimer) {
+    clearTimeout(pendingStopTimer);
+    pendingStopTimer = null;
+  }
   if (infoTimer) {
     clearTimeout(infoTimer);
     infoTimer = null;
     throttledInfo = null;
   }
   ready = false;
+  isSearching = false;
   // Bersihkan semua listeners untuk mencegah stale callback saat re-mount
   readyListeners.clear();
   outputListeners.clear();
@@ -169,14 +194,53 @@ function stop() {
   }
 }
 
+/**
+ * Send `stop` to the worker to cancel the current search, if any.
+ * This is fire-and-forget; the worker may not respond if it is busy.
+ */
+function stopSearch() {
+  if (worker && isSearching) {
+    try {
+      worker.postMessage('stop');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[BrowserEngine] failed to send stop:', err.message);
+    }
+    isSearching = false;
+  }
+}
+
 export function sendCommand(command) {
   if (!worker) start();
-  worker.postMessage(command);
+
+  // Cancel any pending stop before starting a new search to prevent race
+  // conditions where a stale search continues after a position change.
+  if (isGoCommand(command)) {
+    stopSearch();
+  }
+
+  // If the worker failed to initialize, do not attempt to post.
+  if (!worker) {
+    emit({ type: 'error', message: 'Engine worker is not available' });
+    return null;
+  }
+
+  try {
+    worker.postMessage(command);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[BrowserEngine] failed to post command:', err.message);
+    emit({ type: 'error', message: `Failed to send command: ${err.message}` });
+    return null;
+  }
 
   if (isGoCommand(command)) {
+    isSearching = true;
     currentSearchId = ++searchIdCounter;
     return currentSearchId;
   }
+
+  return null;
 }
 
 export function onOutput(cb) {
