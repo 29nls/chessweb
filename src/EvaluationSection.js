@@ -10,7 +10,42 @@ import {
 import { useEvalSwing } from './hooks/useEvalSwing';
 import './EvaluationSection.css';
 
-const EvaluationSection = ({ evaluation, multiPvLines = [], whiteHeight = 50, isDepthAnalysisEnabled, onClickPvMove, isAnalyzing = false }) => {
+/**
+ * Shallow-compare the evaluation shape so the component only re-renders
+ * when a meaningful value changes. The parent (AnalysisPage) may create
+ * a new object reference on every engine tick; without this, the whole
+ * evaluation panel re-renders hundreds of times per second.
+ */
+/**
+ * Compare the props that affect rendering. The parent may create a new
+ * `evaluation` object reference on every engine tick; we only re-render
+ * when the values inside actually change.
+ */
+function evaluationPropsEqual(prev, next) {
+  if (prev === next) return true;
+  if (prev.whiteHeight !== next.whiteHeight) return false;
+  if (prev.isAnalyzing !== next.isAnalyzing) return false;
+  if (prev.isDepthAnalysisEnabled !== next.isDepthAnalysisEnabled) return false;
+  if (prev.multiPvLines.length !== next.multiPvLines.length) return false;
+  if (prev.onClickPvMove !== next.onClickPvMove) return false;
+
+  const a = prev.evaluation;
+  const b = next.evaluation;
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.score === b.score &&
+    a.type === b.type &&
+    a.depth === b.depth &&
+    a.nodes === b.nodes &&
+    a.nps === b.nps &&
+    a.tbhits === b.tbhits &&
+    a.pv?.length === b.pv?.length &&
+    a.pv?.every((m, i) => m === b.pv[i])
+  );
+}
+
+const EvaluationSection = React.memo(({ evaluation, multiPvLines = [], whiteHeight = 50, isDepthAnalysisEnabled, onClickPvMove, isAnalyzing = false }) => {
   const formatEval = (ev) => {
     if (!ev || ev.score === null) return '+0.00';
     if (ev.type === 'cp') {
@@ -179,7 +214,7 @@ const EvaluationSection = ({ evaluation, multiPvLines = [], whiteHeight = 50, is
       )}
     </div>
   );
-};
+}, evaluationPropsEqual);
 
 /**
  * Particle burst effect that fires when a big evaluation swing is detected.

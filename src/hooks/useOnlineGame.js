@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
 import { parseSupabaseError, logSupabaseError } from '../lib/supabaseErrors';
+import { sanitizeChatText, sanitizeReaction } from '../lib/validation';
 import { useGameClock } from './useGameClock';
 import { useChat } from './useChat';
 import {
@@ -180,15 +181,15 @@ export function useOnlineGame() {
 
     // Chat & Reaction (delegated to useChat refs)
     channel.on('broadcast', { event: 'chat_message' }, ({ payload }) => {
-      if (payload.playerId !== playerIdRef.current && chatMessageRef.current) {
-        chatMessageRef.current(payload.text, payload.color, payload.playerId);
-      }
+      if (payload?.playerId === playerIdRef.current || !chatMessageRef.current) return;
+      const text = sanitizeChatText(payload.text);
+      if (text) chatMessageRef.current(text, payload.color, payload.playerId);
     });
 
     channel.on('broadcast', { event: 'reaction' }, ({ payload }) => {
-      if (payload.playerId !== playerIdRef.current && chatReactionRef.current) {
-        chatReactionRef.current(payload.emoji, payload.color, payload.playerId);
-      }
+      if (payload?.playerId === playerIdRef.current || !chatReactionRef.current) return;
+      const emoji = sanitizeReaction(payload.emoji);
+      if (emoji) chatReactionRef.current(emoji, payload.color, payload.playerId);
     });
 
     // Takeback events

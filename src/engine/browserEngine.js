@@ -20,7 +20,6 @@ const WORKER_URL = process.env.PUBLIC_URL
 let worker = null;
 let ready = false;
 let restartTimer = null;
-let pendingStopTimer = null;
 const outputListeners = new Set();
 const readyListeners = new Set();
 
@@ -32,6 +31,18 @@ const readyListeners = new Set();
 let searchIdCounter = 0;
 let currentSearchId = null;
 let isSearching = false;
+
+// ── Promise-based command queue for stop-ack ordering ────
+// UCI is asynchronous; sending a new `position`/`go` while the worker
+// is still calculating the previous position produces stale output. Commands
+// are chained into a single Promise queue. When a new position/go is issued
+// while a search is active, a `stop` is sent and the queue waits for the
+// corresponding `bestmove` (or a safety timeout) before issuing the next
+// command.
+let executionChain = Promise.resolve();
+let stopAckResolver = null;
+let stopAckTimer = null;
+const STOP_ACK_TIMEOUT_MS = 500;
 
 // ── Info throttling ──────────────────────────────────────
 // Stockfish emits hundreds of `info` lines per second during analysis.
@@ -68,6 +79,27 @@ function parse(raw) {
   }
 }
 
+function resolveStopAck() {
+  if (stopAckTimer) {
+    clearTimeout(stopAckTimer);
+    stopAckTimer = null;
+  }
+  if (stopAckResolver) {
+    stopAckResolver();
+    stopAckResolver = null;
+  }
+}
+
+function waitForStopAck() {
+  return new Promise((resolve) => {
+    stopAckResolver = resolve;
+    stopAckTimer = setTimeout(() => {
+      stopAckResolver = null;
+      resolve();
+    }, STOP_ACK_TIMEOUT_MS);
+  });
+}
+
 function handleLine(line) {
   if (line.startsWith('info')) {
     const matchPv = line.match(RE_PV);
@@ -97,6 +129,10 @@ function handleLine(line) {
     flushPendingInfo();
     const move = line.split(' ')[1];
     emit({ type: 'bestmove', searchId: currentSearchId, move });
+
+    // Mark the current search as finished and resolve any pending stop-ack.
+    isSearching = false;
+    resolveStopAck();
   } else if (line === 'uciok' || line === 'readyok') {
     if (!ready) {
       ready = true;
@@ -174,9 +210,9 @@ function stop() {
     clearTimeout(restartTimer);
     restartTimer = null;
   }
-  if (pendingStopTimer) {
-    clearTimeout(pendingStopTimer);
-    pendingStopTimer = null;
+  if (stopAckTimer) {
+    clearTimeout(stopAckTimer);
+    stopAckTimer = null;
   }
   if (infoTimer) {
     clearTimeout(infoTimer);
@@ -185,6 +221,10 @@ function stop() {
   }
   ready = false;
   isSearching = false;
+  // Reset the Promise chain so any pending commands are dropped.
+  executionChain = Promise.resolve();
+  // Resolve any pending stop-ack wait so the chain doesn't hang.
+  resolveStopAck();
   // Bersihkan semua listeners untuk mencegah stale callback saat re-mount
   readyListeners.clear();
   outputListeners.clear();
@@ -194,30 +234,8 @@ function stop() {
   }
 }
 
-/**
- * Send `stop` to the worker to cancel the current search, if any.
- * This is fire-and-forget; the worker may not respond if it is busy.
- */
-function stopSearch() {
-  if (worker && isSearching) {
-    try {
-      worker.postMessage('stop');
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[BrowserEngine] failed to send stop:', err.message);
-    }
-    isSearching = false;
-  }
-}
-
 export function sendCommand(command) {
   if (!worker) start();
-
-  // Cancel any pending stop before starting a new search to prevent race
-  // conditions where a stale search continues after a position change.
-  if (isGoCommand(command)) {
-    stopSearch();
-  }
 
   // If the worker failed to initialize, do not attempt to post.
   if (!worker) {
@@ -225,22 +243,55 @@ export function sendCommand(command) {
     return null;
   }
 
-  try {
-    worker.postMessage(command);
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[BrowserEngine] failed to post command:', err.message);
-    emit({ type: 'error', message: `Failed to send command: ${err.message}` });
-    return null;
-  }
-
+  let allocatedId = null;
   if (isGoCommand(command)) {
-    isSearching = true;
-    currentSearchId = ++searchIdCounter;
-    return currentSearchId;
+    allocatedId = ++searchIdCounter;
   }
 
-  return null;
+  // Append an async task to the chain. The task will wait for any active
+  // search to stop before posting commands that would change the position.
+  executionChain = executionChain.then(async () => {
+    const lower = command.toLowerCase();
+
+    // If an explicit stop is sent, halt the worker and wait for bestmove.
+    if (lower === 'stop') {
+      if (isSearching) {
+        worker.postMessage('stop');
+        await waitForStopAck();
+      }
+      return;
+    }
+
+    // Commands that would start a new search or change the position must
+    // wait for any running search to fully stop first.
+    const needsCleanState = (lower.startsWith('position') || lower === 'ucinewgame' || isGoCommand(command)) && isSearching;
+    if (needsCleanState) {
+      worker.postMessage('stop');
+      await waitForStopAck();
+      if (!worker) return;
+    }
+
+    if (isGoCommand(command)) {
+      isSearching = true;
+      currentSearchId = allocatedId;
+    }
+
+    if (!worker) return;
+
+    try {
+      worker.postMessage(command);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[BrowserEngine] failed to post command:', err.message);
+      emit({ type: 'error', message: `Failed to send command: ${err.message}` });
+    }
+  }).catch((err) => {
+    // Prevent a single failed command from breaking the entire queue.
+    // eslint-disable-next-line no-console
+    console.error('[BrowserEngine] command failed:', err.message);
+  });
+
+  return allocatedId;
 }
 
 export function onOutput(cb) {

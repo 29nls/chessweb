@@ -1,12 +1,31 @@
 /* ===== Puzzle Mode Layout ===== */
 
 .puzzle-mode .App-body {
-  grid-template-columns: 260px 1fr 200px;
+  grid-template-columns: 260px 1fr 220px;
+  grid-template-areas:
+    "info chessboard solution";
+}
+
+@media (max-width: 1100px) {
+  .puzzle-mode .App-body {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "chessboard"
+      "info"
+      "solution";
+  }
+}
+
+@media (max-width: 640px) {
+  .puzzle-mode .App-body {
+    gap: 12px;
+  }
 }
 
 /* ===== Left Panel: Puzzle Info ===== */
 
 .puzzle-info-panel {
+  grid-area: info;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -329,6 +348,7 @@
 /* ===== Right Panel: Solution ===== */
 
 .puzzle-moves-panel {
+  grid-area: solution;
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -535,14 +555,6 @@
 
 /* ===== Responsive: Mobile ===== */
 @media (max-width: 768px) {
-  .puzzle-mode .App-body {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "chessboard"
-      "info"
-      "solution";
-  }
-
   .puzzle-info-panel {
     padding: 16px;
   }

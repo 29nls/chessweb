@@ -101,21 +101,21 @@ const LandingSkeleton = ({ stepIndex }) => {
       </div>
 
       {/* ── Piece step indicators ── */}
-      <div className="sk-pieces-steps" aria-hidden="true">
+      <div className="landing-sk-steps" aria-hidden="true">
         {LOADING_STEPS.map((s, i) => {
           const pieceChar = LANDING_STEP_PIECES[i % LANDING_STEP_PIECES.length];
           const isDone = i <= stepIndex;
           const isCurrent = i === stepIndex;
           return (
-            <div key={s.section} className={`sk-ps-step ${isDone ? 'ps-done' : ''} ${isCurrent ? 'ps-current' : ''}`}>
-              <div className={`sk-ps-dot ${isDone ? 'ps-dot-done' : ''} ${isCurrent ? 'ps-dot-current' : ''}`}>
+            <div key={s.section} className={`landing-sk-step ${isDone ? 'step-done' : ''} ${isCurrent ? 'step-current' : ''}`}>
+              <div className="landing-sk-step-dot">
                 {isDone ? (
-                  <span className="sk-ps-piece">{pieceChar}</span>
+                  <span className="landing-sk-step-piece">{pieceChar}</span>
                 ) : (
-                  <span className="sk-ps-empty" />
+                  <span className="landing-sk-step-empty" />
                 )}
               </div>
-              <span className="sk-ps-label">{s.label}</span>
+              <span className="landing-sk-step-label">{s.label}</span>
             </div>
           );
         })}

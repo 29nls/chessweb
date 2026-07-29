@@ -136,9 +136,14 @@ const Controls = ({
     setSelectedEngine(engineName);
     if (engineMode === 'backend') {
       try {
+        const headers = { 'Content-Type': 'application/json' };
+        const internalApiKey = process.env.REACT_APP_INTERNAL_API_KEY;
+        if (internalApiKey) {
+          headers['X-Internal-API-Key'] = internalApiKey;
+        }
         const data = await fetchJson(`${backendUrl}/api/select-engine`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ engine: engineName }),
         });
         console.log(data.message);

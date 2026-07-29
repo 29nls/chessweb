@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { Wifi, Copy, Globe, Eye, Users } from 'react-feather';
 import { useLobbyGames } from './hooks/useLobbyGames';
 import { TIME_CONTROL_PRESETS } from './lib/onlineGameUtils';
+import { sanitizeChatText } from './lib/validation';
 import AccessibleDialog from './AccessibleDialog';
 import './OnlineLobby.css';
 
@@ -43,11 +44,16 @@ const OnlineLobby = ({
   if (!isOpen && gameStatus === 'idle') return null;
 
   const handleJoin = () => {
-    if (!joinCode.trim()) {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) {
       toast.warning('Please enter a game code first.');
       return;
     }
-    onJoinGame(joinCode.trim());
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      toast.warning('Game code must be 6 letters or numbers.');
+      return;
+    }
+    onJoinGame(code);
   };
 
   const handleCreateGame = async () => {
@@ -59,6 +65,8 @@ const OnlineLobby = ({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleJoin();
   };
+
+
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(gameCode).then(() => {
@@ -331,12 +339,15 @@ const ChatPanel = ({
   }, [messages]);
 
   const handleSend = () => {
-    const text = inputText.trim();
+    const text = sanitizeChatText(inputText);
     if (!text) return;
     onSendMessage(text);
     setInputText('');
     inputRef.current?.focus();
   };
+
+  // Emoji whitelist is enforced by the sender (useChat), but also guard here
+  // so the UI never dispatches unexpected reactions.
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -523,7 +534,7 @@ export const OnlineStatusBar = ({
         <div className="online-status-actions">
           {!isSpectator && takebackRequestState !== 'sent' && (
             <button
-              className="online-btn-takeback"
+              className="online-action-btn online-btn-takeback"
               onClick={onRequestTakeback}
               disabled={movesCount === 0}
               title={movesCount === 0 ? 'No moves to take back' : 'Request takeback'}
@@ -533,7 +544,7 @@ export const OnlineStatusBar = ({
           )}
           {!isSpectator && drawRequestState !== 'sent' && (
             <button
-              className="online-btn-draw"
+              className="online-action-btn online-btn-draw"
               onClick={onOfferDraw}
               title="Offer draw"
             >
@@ -541,11 +552,11 @@ export const OnlineStatusBar = ({
             </button>
           )}
           {!isSpectator && (
-            <button className="online-btn-resign" onClick={() => setPendingAction('resign')}>
+            <button className="online-action-btn online-btn-resign" onClick={() => setPendingAction('resign')}>
               Resign
             </button>
           )}
-          <button className="online-btn-leave" onClick={() => setPendingAction('leave')}>
+          <button className="online-action-btn online-btn-leave" onClick={() => setPendingAction('leave')}>
             Leave
           </button>
         </div>

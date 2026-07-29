@@ -20,7 +20,7 @@
   min-height: 100vh;
   align-items: center;
   justify-content: flex-start;
-  padding: 25px;
+  padding: clamp(16px, 3vw, 28px);
   box-sizing: border-box;
   background-color: var(--bg-primary);
 }
@@ -28,7 +28,7 @@
 .App-header {
   width: 100%;
   text-align: center;
-  margin-bottom: 25px;
+  margin-bottom: clamp(16px, 2.5vw, 24px);
 }
 
 .App-header h1 {
@@ -38,35 +38,53 @@
   margin: 0;
 }
 
+/*
+  Global layout grid.
+  Desktop   : three columns with evaluation / chessboard / controls
+  Tablet    : single column for readability
+  Mobile    : single column, full-width board
+*/
 .App-body {
   display: grid;
   grid-template-columns: 260px 1fr 260px;
   grid-template-areas:
     "evaluation chessboard controls"
     "opening movehistory movehistory";
-  gap: 25px;
+  gap: 24px;
   align-items: flex-start;
   width: 100%;
   max-width: 1300px;
 }
 
+/* Online mode: a clean vertical column for status bar, board and chat */
 .App-body.online-mode {
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "chessboard";
-  justify-content: center;
-  max-width: 650px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 16px;
+  max-width: 720px;
   margin: 0 auto;
+}
+
+.App-body.online-mode .online-column {
+  width: 100%;
 }
 
 .panel {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 8px var(--shadow-color);
-  animation: fade-in-up 0.5s ease-out forwards;
-  opacity: 0; /* Start hidden for animation */
+  opacity: 1;
+}
+
+/* Only animate panels when motion is not reduced, ensuring content stays visible */
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    animation: fade-in-up 0.5s ease-out forwards;
+  }
 }
 
 /* Chessboard Colors — didefinisikan hanya di index.css untuk konsistensi dark mode */
@@ -93,6 +111,8 @@
   opacity: 1;
   perspective: 800px;
   touch-action: manipulation;
+  width: 100%;
+  min-height: 0;
 }
 
 /* 3D card-flip animation for board orientation change */
@@ -136,22 +156,27 @@
 
 .chessboard-container {
   width: 100%;
-  max-width: 600px;
-  border-radius: 6px;
+  max-width: min(600px, 100vw - 32px);
+  border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 5px 20px var(--shadow-color);
+}
+
+/* Ensure the board wrapper never overflows its container */
+.chessboard-container > * {
+  max-width: 100%;
 }
 
 .controls {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .control-section {
   background-color: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 15px;
+  border-radius: 10px;
+  padding: 16px;
   border: 1px solid var(--border-color);
 }
 
@@ -159,10 +184,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1.1em;
+  font-size: 1em;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 15px 0;
+  margin: 0 0 14px 0;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color);
 }
@@ -573,12 +598,8 @@ input[type="range"]:disabled {
   animation: fade-in-up 0.5s ease-out 0.4s forwards;
 }
 
-/* Responsive: Tablet (769px - 1100px) */
-@media (max-width: 1100px) and (min-width: 769px) {
-  .App {
-    padding: 20px;
-  }
-
+/* Responsive: Tablet (up to 1100px) */
+@media (max-width: 1100px) {
   .App-body {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -587,47 +608,45 @@ input[type="range"]:disabled {
       "opening"
       "controls"
       "movehistory";
-    max-width: 520px;
+    max-width: 720px;
     gap: 18px;
   }
 
   .chessboard-container {
-    max-width: 500px;
+    max-width: 100%;
   }
 
   .evaluation-section {
     max-width: 100%;
   }
 
-  .control-section {
-    padding: 12px;
-  }
-
   .controls {
     gap: 16px;
   }
+
+  .control-section {
+    padding: 14px;
+  }
+
+  .button-grid {
+    gap: 8px;
+  }
 }
 
-/* Responsive: Mobile (481px - 768px) */
+/* Responsive: Mobile (up to 768px) */
 @media (max-width: 768px) {
   .App {
-    padding: 16px;
+    padding: 14px;
   }
 
   .App-body {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "chessboard"
-      "evaluation"
-      "opening"
-      "controls"
-      "movehistory";
-    max-width: 600px;
-    gap: 16px;
+    max-width: 100%;
+    gap: 14px;
   }
 
   .chessboard-container {
     max-width: 100%;
+    border-radius: 6px;
   }
 
   .controls {
@@ -1164,6 +1183,96 @@ input[type="range"]:disabled {
   @keyframes board-flip-in {
     0% { transform: none; opacity: 1; }
     100% { transform: none; opacity: 1; }
+  }
+}
+
+/* ===== Mobile layout refinements for Analysis & Online pages ===== */
+
+@media (max-width: 640px) {
+  .App {
+    padding: 12px;
+  }
+
+  .App-body {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "chessboard"
+      "evaluation"
+      "controls"
+      "opening"
+      "movehistory";
+    gap: 14px;
+    max-width: 100%;
+  }
+
+  .App-body.online-mode,
+  .App-body.puzzle-mode,
+  .App-body.puzzle-rush-mode {
+    max-width: 100%;
+  }
+
+  .chessboard-container-wrapper {
+    width: 100%;
+    min-height: unset;
+    aspect-ratio: 1 / 1;
+  }
+
+  .chessboard-container {
+    max-width: 100%;
+    width: 100%;
+    border-radius: 6px;
+  }
+
+  /* Touch target safety net */
+  .icon-button,
+  .button-primary,
+  .button-secondary,
+  .control-group select,
+  input[type="range"]::-webkit-slider-thumb,
+  input[type="range"]::-moz-range-thumb {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Evaluation panel spacing */
+  .evaluation-section {
+    gap: 12px;
+  }
+
+  /* Move history should not dominate the viewport */
+  .move-history-panel {
+    max-height: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .App {
+    padding: 10px;
+  }
+
+  .App-body {
+    gap: 12px;
+  }
+
+  .chessboard-container {
+    border-radius: 4px;
+  }
+
+  /* Reduce panel padding to reclaim horizontal space */
+  .panel {
+    padding: 14px;
+  }
+
+  .controls {
+    gap: 12px;
+  }
+
+  .control-section {
+    padding: 12px;
+  }
+
+  .section-title {
+    font-size: 0.95em;
   }
 }
 

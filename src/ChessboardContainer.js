@@ -11,9 +11,8 @@ function getSquare(fileIndex, rankIndex) {
   return `${FILES[fileIndex]}${RANKS[rankIndex]}`;
 }
 
-function getPieceName(fen, square) {
+function getPieceName(game, square) {
   try {
-    const game = new Chess(fen);
     const piece = game.get(square);
     if (!piece) return 'empty';
     const color = piece.color === 'w' ? 'White' : 'Black';
@@ -137,6 +136,18 @@ const ChessboardContainer = React.memo(({
     }
   }, [lastMove]);
 
+  // Reuse a single Chess instance per FEN to avoid repeatedly constructing
+  // new objects on every square click / render. `Chess` instances are cheap,
+  // but constructing them dozens of times per interaction adds up.
+  const game = useMemo(() => {
+    try {
+      return new Chess(fen);
+    } catch (err) {
+      console.warn('Chessboard: Invalid FEN', fen, err);
+      return null;
+    }
+  }, [fen]);
+
   // Reset selection when FEN changes (opponent moved, etc.)
   useEffect(() => {
     setSelectedSquare(null);
@@ -144,10 +155,10 @@ const ChessboardContainer = React.memo(({
     setCaptureSquares(new Set());
   }, [fen]);
 
-  // Compute legal moves for a given square
-  const computeLegalMoves = useCallback((square, gameFen) => {
+  // Compute legal moves for a given square using the memoized game instance.
+  const computeLegalMoves = useCallback((square) => {
+    if (!game) return [];
     try {
-      const game = new Chess(gameFen);
       const moves = game.moves({ square, verbose: true });
       const destinations = moves.map(m => m.to);
       const captures = new Set(moves.filter(m => m.flags && (m.flags.includes('c') || m.flags.includes('e'))).map(m => m.to));
@@ -158,7 +169,7 @@ const ChessboardContainer = React.memo(({
       setCaptureSquares(new Set());
       return [];
     }
-  }, []);
+  }, [game]);
 
   const handleSquareClick = (square) => {
     // If spectator or online mode without click handler, ignore
@@ -193,12 +204,11 @@ const ChessboardContainer = React.memo(({
 
       // If clicking another piece of the same color, select it instead
       try {
-        const game = new Chess(fen);
-        const piece = game.get(square);
-        const selectedPiece = game.get(selectedSquare);
+        const piece = game?.get(square);
+        const selectedPiece = game?.get(selectedSquare);
         if (piece && selectedPiece && piece.color === selectedPiece.color) {
           setSelectedSquare(square);
-          setLegalMoves(computeLegalMoves(square, fen));
+          setLegalMoves(computeLegalMoves(square));
           return;
         }
       } catch (err) {
@@ -208,7 +218,7 @@ const ChessboardContainer = React.memo(({
 
     // Select this square and compute legal moves
     setSelectedSquare(square);
-    setLegalMoves(computeLegalMoves(square, fen));
+    setLegalMoves(computeLegalMoves(square));
   };
 
   // Keyboard navigation handlers
@@ -450,7 +460,7 @@ const ChessboardContainer = React.memo(({
   ]);
 
   const ariaAnnouncement = keyboardSquare
-    ? `${getPieceName(fen, keyboardSquare)} on ${keyboardSquare}.${selectedSquare ? ` Selected ${selectedSquare}.` : ''}`
+    ? `${getPieceName(game, keyboardSquare)} on ${keyboardSquare}.${selectedSquare ? ` Selected ${selectedSquare}.` : ''}`
     : '';
 
   return (

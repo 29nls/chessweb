@@ -1,4 +1,5 @@
 import { useRef, useCallback } from 'react';
+import { sanitizeChatText, sanitizeReaction } from '../lib/validation';
 
 /**
  * useChat — Encapsulates chat message and emoji reaction sending/receiving
@@ -15,21 +16,25 @@ export function useChat({ channelRef, playerIdRef, playerColor }) {
   const onReactionRef = useRef(null);
 
   const sendChatMessage = useCallback((text) => {
+    const sanitized = sanitizeChatText(text);
+    if (!sanitized) return;
     if (channelRef.current && playerColor !== 'spectator') {
       channelRef.current.send({
         type: 'broadcast',
         event: 'chat_message',
-        payload: { playerId: playerIdRef.current, text, color: playerColor },
+        payload: { playerId: playerIdRef.current, text: sanitized, color: playerColor },
       });
     }
   }, [channelRef, playerIdRef, playerColor]);
 
   const sendReaction = useCallback((emoji) => {
+    const sanitized = sanitizeReaction(emoji);
+    if (!sanitized) return;
     if (channelRef.current && playerColor !== 'spectator') {
       channelRef.current.send({
         type: 'broadcast',
         event: 'reaction',
-        payload: { playerId: playerIdRef.current, emoji, color: playerColor },
+        payload: { playerId: playerIdRef.current, emoji: sanitized, color: playerColor },
       });
     }
   }, [channelRef, playerIdRef, playerColor]);

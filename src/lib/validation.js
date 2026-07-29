@@ -1,6 +1,35 @@
 import { Chess } from 'chess.js';
 import { containsHtmlTags } from './htmlUtil';
 
+export const MAX_CHAT_LENGTH = 200;
+export const ALLOWED_REACTIONS = ['👍', '👏', '😂', '🎉', '🤔', '😢', '🔥', '💪'];
+export const ALLOWED_REACTION_SET = new Set(ALLOWED_REACTIONS);
+
+/**
+ * Sanitize chat text by trimming, capping length, and stripping HTML/script tags
+ * and null bytes as a defense-in-depth measure.
+ * @param {unknown} text
+ * @returns {string|null} sanitized text or null if invalid/empty
+ */
+export function sanitizeChatText(text) {
+  if (typeof text !== 'string') return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const cleaned = trimmed.replace(/<[^>]*>/g, '').replace(/\0/g, '');
+  if (!cleaned) return null;
+  return cleaned.slice(0, MAX_CHAT_LENGTH);
+}
+
+/**
+ * Validate an emoji reaction against the allowed whitelist.
+ * @param {unknown} emoji
+ * @returns {string|null}
+ */
+export function sanitizeReaction(emoji) {
+  if (typeof emoji !== 'string') return null;
+  return ALLOWED_REACTION_SET.has(emoji) ? emoji : null;
+}
+
 /**
  * Validates a FEN string.
  * @param {string} fen

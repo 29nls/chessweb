@@ -1,7 +1,25 @@
 /* ===== Puzzle Rush Mode Layout ===== */
 
 .puzzle-rush-mode .App-body {
-  grid-template-columns: 260px 1fr 200px;
+  grid-template-columns: 260px 1fr 220px;
+  grid-template-areas:
+    "hud chessboard solution";
+}
+
+@media (max-width: 1100px) {
+  .puzzle-rush-mode .App-body {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "chessboard"
+      "hud"
+      "solution";
+  }
+}
+
+@media (max-width: 640px) {
+  .puzzle-rush-mode .App-body {
+    gap: 12px;
+  }
 }
 
 /* ===== Timer Bar ===== */
@@ -170,6 +188,7 @@
 /* ===== HUD Panel ===== */
 
 .rush-hud-panel {
+  grid-area: hud;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -200,6 +219,7 @@
 /* ===== Solution Panel ===== */
 
 .rush-solution-panel {
+  grid-area: solution;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -528,14 +548,6 @@
 /* ===== Responsive ===== */
 
 @media (max-width: 768px) {
-  .puzzle-rush-mode .App-body {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "chessboard"
-      "hud"
-      "solution";
-  }
-
   .rush-hud-panel {
     padding: 12px;
   }

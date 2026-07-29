@@ -5,7 +5,17 @@ const { setCorsHeaders } = require('./_lib/cors');
 const { getClientIp } = require('./_lib/getClientIp');
 
 const WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 20;
+const MAX_REQUESTS = 10; // Stricter: engine selection is expensive / abuse-prone
+
+// Require a shared secret for engine selection when deployed. This endpoint
+// selects which engine runs on the backend, so it should not be open to the
+// public even with rate limiting.
+//
+// IMPORTANT: if INTERNAL_API_KEY is set, every caller (including the SPA)
+// must send the same value in the `X-Internal-API-Key` header. Leave this env
+// var empty/unset if the frontend does not yet send that header, otherwise
+// legitimate requests will be rejected with 401.
+const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
 
 module.exports = async function handler(req, res) {
   setCorsHeaders(res, 'POST, OPTIONS');
@@ -26,6 +36,15 @@ module.exports = async function handler(req, res) {
 
   const clientIp = getClientIp(req);
   const key = `select-engine:${clientIp}`;
+
+  // Authentication: if an internal API key is configured, require it.
+  if (INTERNAL_API_KEY) {
+    const providedKey = req.headers['x-internal-api-key'];
+    if (!providedKey || providedKey !== INTERNAL_API_KEY) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+
   const { allowed, remaining, resetAt } = await checkRateLimit(key, WINDOW_MS, MAX_REQUESTS);
 
   res.setHeader('Content-Type', 'application/json');

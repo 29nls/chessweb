@@ -258,6 +258,9 @@ export function useChessEngine({ threads, hashSize, fen, onBestMove, multiPv = 1
       engine.current?.sendCommand?.('stop');
       engine.current?.sendCommand?.('ucinewgame');
       engine.current?.disconnect?.();
+      // Release the engine reference so the next mount creates a fresh instance
+      // and any lingering worker can be garbage-collected.
+      engine.current = null;
       currentSearchIdRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

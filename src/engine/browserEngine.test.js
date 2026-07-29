@@ -26,6 +26,13 @@ class MockWorker {
   }
 }
 
+// Flush any microtasks so the Promise-based command queue has a chance to
+// post commands and update internal search tracking before the test emits
+// engine output synchronously.
+function flushPromises() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 let browserEngine;
 
 beforeAll(async () => {
@@ -44,12 +51,14 @@ test('sendCommand creates a worker and posts the command', () => {
   expect(w.posted).toContain('uci');
 });
 
-test('onOutput parses info lines (score, depth, pv) and tags the current searchId', () => {
+test('onOutput parses info lines (score, depth, pv) and tags the current searchId', async () => {
   const received = [];
   const off = browserEngine.onOutput((d) => received.push(d));
 
   browserEngine.sendCommand('position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
   const searchId = browserEngine.sendCommand('go depth 12');
+  await flushPromises();
+
   const w = global.__lastWorker;
   w.emit('info depth 12 score cp 34 pv e2e4 e7e5');
 
@@ -63,11 +72,13 @@ test('onOutput parses info lines (score, depth, pv) and tags the current searchI
   off();
 });
 
-test('onOutput parses bestmove (ignoring ponder suffix) and tags the current searchId', () => {
+test('onOutput parses bestmove (ignoring ponder suffix) and tags the current searchId', async () => {
   const received = [];
   const off = browserEngine.onOutput((d) => received.push(d));
 
   const searchId = browserEngine.sendCommand('go movetime 1000');
+  await flushPromises();
+
   const w = global.__lastWorker;
   w.emit('bestmove e2e4 ponder e7e5');
 
