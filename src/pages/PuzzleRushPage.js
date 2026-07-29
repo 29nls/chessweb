@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
-import { ChevronRight, Zap, Heart, Clock, RotateCcw, Award } from 'react-feather';
+import { Zap, Heart, Clock, RotateCcw, Award } from 'react-feather';
 import { useLoadingSequence } from '../hooks/useLoadingSequence';
 import { PuzzleSkeleton } from '../components/SkeletonLoader';
 import ErrorBoundary from '../ErrorBoundary';
@@ -130,6 +130,7 @@ export default function PuzzleRushPage() {
       }
     }, 100);
     timerRef.current = interval;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stopTimer = useCallback(() => {

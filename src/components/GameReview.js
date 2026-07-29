@@ -45,7 +45,7 @@ const BreakdownCounts = ({ counts, sideLabel }) => {
   return (
     <div className="breakdown-side" role="region" aria-label={`${sideLabel} move breakdown`}>
       <h4>{sideLabel}</h4>
-      <ul role="list" aria-label={`${sideLabel} classified moves`}>
+      <ul aria-label={`${sideLabel} classified moves`}>
         {entries.map(({ key, count, color, icon }) => (
           <li key={key} className="breakdown-count">
             <span className="breakdown-label" style={{ color }}>

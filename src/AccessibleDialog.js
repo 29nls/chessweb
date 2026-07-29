@@ -26,7 +26,7 @@ const AccessibleDialog = ({ isOpen, onClose, labelledBy, describedBy, children, 
     const handleCancel = (e) => { e.preventDefault(); onClose(); };
     dialog.addEventListener('cancel', handleCancel);
     return () => dialog.removeEventListener('cancel', handleCancel);
-  }, [onClose]);
+  }, [onClose, dialogRef]);
 
   // Click outside to close (click on backdrop)
   useEffect(() => {
@@ -37,7 +37,7 @@ const AccessibleDialog = ({ isOpen, onClose, labelledBy, describedBy, children, 
     };
     dialog.addEventListener('click', handleClick);
     return () => dialog.removeEventListener('click', handleClick);
-  }, [onClose]);
+  }, [onClose, dialogRef]);
 
   return (
     <dialog

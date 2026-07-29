@@ -28,7 +28,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
     dialog.addEventListener('cancel', handleCancel);
     return () => dialog.removeEventListener('cancel', handleCancel);
-  }, [onClose]);
+  }, [onClose, dialogRef]);
 
   // Close when the user clicks on the dialog backdrop
   useEffect(() => {
@@ -39,7 +39,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     };
     dialog.addEventListener('click', handleClick);
     return () => dialog.removeEventListener('click', handleClick);
-  }, [onClose]);
+  }, [onClose, dialogRef]);
 
   return (
     <dialog

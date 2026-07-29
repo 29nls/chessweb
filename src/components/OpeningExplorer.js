@@ -33,7 +33,7 @@ export default function OpeningExplorer({ moves }) {
       {commonNext.length > 0 && (
         <div className="opening-next-moves">
           <div id="opening-next-header" className="opening-next-header">Common next moves:</div>
-          <ul role="list" aria-labelledby="opening-next-header" className="opening-next-list">
+          <ul aria-labelledby="opening-next-header" className="opening-next-list">
             {commonNext.map(({ move, count }) => (
               <li key={move} className="opening-next-item">
                 <span className="opening-next-move">{move}</span>

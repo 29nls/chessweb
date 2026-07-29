@@ -394,7 +394,7 @@ export function useOnlineGame() {
     saveGameState(code, 'white', 'waiting');
     subscribeToChannel(code, 'white');
     return code;
-  }, [subscribeToChannel]);
+  }, [subscribeToChannel, setTimeControlFn]);
 
   const checkSlotAvailability = useCallback(async (code, desiredColor) => {
     if (!supabase) return true;
@@ -478,7 +478,7 @@ export function useOnlineGame() {
     saveGameState(normalized, 'black', 'waiting');
     subscribeToChannel(normalized, 'black');
     return true;
-  }, [subscribeToChannel, checkSlotAvailability]);
+  }, [subscribeToChannel, checkSlotAvailability, setTimeControlFn]);
 
   const joinAsSpectator = useCallback((code) => {
     const normalized = code.trim().toUpperCase();
