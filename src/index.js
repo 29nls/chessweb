@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import './design-system.css';
 
 // ── Register service worker for offline support (production only) ──
 // Stockfish WASM is fully client-side, so the app can work without a network.
