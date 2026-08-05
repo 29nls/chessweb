@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, historySupabase } from '../supabaseClient';
+import { getHistoryOwnerId } from '../lib/gameHistoryAuth';
 import { parseSupabaseError, logSupabaseError } from '../lib/supabaseErrors';
 import { sanitizeChatText, sanitizeReaction } from '../lib/validation';
 import { useGameClock } from './useGameClock';
@@ -12,6 +13,15 @@ import {
   getSavedGameState,
   TIME_CONTROL_PRESETS,
 } from '../lib/onlineGameUtils';
+
+async function callSlotRpc(functionName, params) {
+  if (!historySupabase) return { unavailable: true };
+
+  const ownerId = await getHistoryOwnerId();
+  if (!ownerId) return { unavailable: true };
+
+  return historySupabase.rpc(functionName, params);
+}
 
 // Re-export for backward compatibility
 export { TIME_CONTROL_PRESETS };
@@ -360,12 +370,16 @@ export function useOnlineGame() {
     const code = generateCode();
     if (supabase) {
       try {
-        const { data, error: claimError } = await supabase.rpc('claim_chess_game_slot', {
+        const result = await callSlotRpc('claim_chess_game_slot', {
           p_game_code: code,
-          p_player_id: playerIdRef.current,
           p_color: 'white',
           p_time_control_ms: timeMs || 0,
         });
+        if (result.unavailable) {
+          setError('Supabase anonymous authentication is unavailable. Please try again later.');
+          return false;
+        }
+        const { data, error: claimError } = result;
         const claim = Array.isArray(data) ? data[0] : data;
         if (claimError) {
           const parsed = parseSupabaseError(claimError);
@@ -439,12 +453,16 @@ export function useOnlineGame() {
 
     if (supabase) {
       try {
-        const { data, error: claimError } = await supabase.rpc('claim_chess_game_slot', {
+        const result = await callSlotRpc('claim_chess_game_slot', {
           p_game_code: normalized,
-          p_player_id: playerIdRef.current,
           p_color: 'black',
           p_time_control_ms: 0,
         });
+        if (result.unavailable) {
+          setError('Supabase anonymous authentication is unavailable. Please try again later.');
+          return false;
+        }
+        const { data, error: claimError } = result;
         const claim = Array.isArray(data) ? data[0] : data;
         if (claimError) {
           const parsed = parseSupabaseError(claimError);
@@ -600,9 +618,8 @@ export function useOnlineGame() {
   const leaveGame = useCallback(async () => {
     if (supabase && gameCode && playerColor !== 'spectator') {
       try {
-        await supabase.rpc('release_chess_game_slot', {
+        await callSlotRpc('release_chess_game_slot', {
           p_game_code: gameCode,
-          p_player_id: playerIdRef.current,
         });
       } catch (err) {
         logSupabaseError('release_chess_game_slot', err);
