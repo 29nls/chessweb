@@ -15,7 +15,7 @@ const puzzles = [
   {
     id: 1,
     fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4',
-    moves: ['Nd5', 'Nxd5', 'Bxd5'],
+    moves: ['Nd4', 'Nxd4', 'Bb5'],
     rating: 1200,
     themes: ['Fork', 'Center'],
     description: 'White to play — exploit the loose knight on c6.',
@@ -33,7 +33,7 @@ const puzzles = [
   {
     id: 3,
     fen: 'r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 5',
-    moves: ['Qxf7+', 'Kd8', 'Qd5+'],
+    moves: ['Qxg7', 'Rg8', 'Qxf8+'],
     rating: 1100,
     themes: ['Sacrifice', 'Mating Attack'],
     description: 'White to play — a queen sacrifice to force checkmate.',
@@ -59,7 +59,7 @@ const puzzles = [
   {
     id: 6,
     fen: '2kr3r/ppp2ppp/2n5/3q4/3P4/6P1/PP3P1P/R2Q1RK1 b - - 0 14',
-    moves: ['Qxd4', 'Rfd1', 'Qxd1+', 'Rxd1', 'Rxd1+'],
+    moves: ['Qxd4', 'g4', 'Qxd1', 'Rfxd1', 'Rxd1+'],
     rating: 1700,
     themes: ['Skewer', 'Queen Trap'],
     description: 'Black to play — win material with a skewer.',
@@ -69,7 +69,7 @@ const puzzles = [
   {
     id: 7,
     fen: 'r2qk2r/ppp2ppp/2np4/2b1p1B1/2BnP3/3P1N2/PPP2PPP/RN1QK2R w KQkq - 0 7',
-    moves: ['Bxf7+', 'Ke7', 'Nd5+'],
+    moves: ['Bxf7+', 'Kd7', 'Nxe5+'],
     rating: 1300,
     themes: ['Discovered Attack', 'Fork'],
     description: 'White to play — discover an attack on the queen.',
@@ -117,7 +117,7 @@ const puzzles = [
   {
     id: 12,
     fen: '8/4k3/3p4/3P4/3K4/8/8/8 w - - 0 1',
-    moves: ['Kd3', 'Kd7', 'Kc4', 'Kc6', 'Kd4', 'Kd7', 'Kc5', 'Kc7', 'Kd5', 'Kd7', 'd6', 'Kd8', 'Kc6', 'Kc8', 'd7+', 'Kd8', 'Kd6'],
+    moves: ['Ke4', 'Kd8', 'Kf5', 'Ke8', 'Ke6', 'Kf8', 'Kxd6', 'Kg8', 'Kc7', 'Kh8', 'd6', 'Kh7', 'd7', 'Kg8', 'd8=Q'],
     rating: 1800,
     themes: ['Pawn Endgame', 'Promotion'],
     description: 'White to play — can you promote the pawn?',
@@ -148,7 +148,7 @@ const puzzles = [
   {
     id: 15,
     fen: 'k7/8/1K6/4P3/8/8/8/8 w - - 0 1',
-    moves: ['e6','Kb8','Ka6','Ka8','e7','Kb8','e8=Q','Ka7','Qe3','Kb8','Kb6','Kc8','Qc5','Kd8','Qd6','Ke8','Qe6','Kd8','Qd6','Kc8','Qc6','Kb8','Kb6','Ka8','Qa6','Kb8','Qa7','Kc8','Qb7','Kd8','Qd7'],
+    moves: ['e6', 'Kb8', 'e7', 'Kc8', 'e8=Q'],
     rating: 1900,
     themes: ['Zugzwang', 'Pawn Endgame', 'Promotion'],
     description: 'White to play — force Black into zugzwang and promote with mate.',
@@ -156,7 +156,7 @@ const puzzles = [
   {
     id: 16,
     fen: '8/3k4/8/3KP3/8/8/8/8 w - - 0 1',
-    moves: ['Kd4','Kd6','Ke4','Kc6','Ke5','Kd7','Kd5','Kc7','e6','Kd8','Kd6','Ke8','e7','Kf7','Kd7','Kg7','e8=Q','Kf6','Qe6','Kg7','Ke7','Kg8','Qf5','Kh8','Kf7','Kg7','Qf8','Kg6','Qf6','Kh5','Qg5'],
+    moves: ['e6+', 'Kc8', 'e7', 'Kd7', 'e8=Q'],
     rating: 1800,
     themes: ['Zugzwang', 'Pawn Endgame', 'Promotion'],
     description: 'White to play — outflank Black and promote the pawn.',
@@ -182,7 +182,7 @@ const puzzles = [
   {
     id: 18,
     fen: '8/3k4/8/3K1P2/8/8/8/8 w - - 0 1',
-    moves: ['Kc5','Ke7','Kc6','Ke8','Kd6','Kf8','Ke6','Kg7','Ke7','Kg8','Kf6','Kf8','f6','Kg8','f7+','Kh7','f8=Q'],
+    moves: ['Ke4', 'Kc7', 'f6', 'Kb8', 'f7', 'Kc8', 'f8=Q'],
     rating: 1800,
     themes: ['Endgame', 'Pawn Promotion', 'King Opposition'],
     description: 'White to play — use king opposition to promote the pawn.',
@@ -190,7 +190,7 @@ const puzzles = [
   {
     id: 19,
     fen: '8/8/1k6/p7/P2K4/8/8/8 w - - 0 1',
-    moves: ['Kc4','Ka6','Kb4','Kb6','Kxa4','Kc5','Kb3','Kd4','Kc2','Ke3','Kd1','Kf2','Ke2','Kg1','Kf3','Kh2','Kf4','Kh3','Kf5','Kg2','Ke5','Kf3','Kd5','Ke3','Kc6','Kd4','Kb6','Kc4','Kxa5'],
+    moves: ['Kc4', 'Ka7', 'Kb5', 'Ka8', 'Kxa5'],
     rating: 2000,
     themes: ['Endgame', 'Pawn Race', 'King Maneuver'],
     description: 'White to play — march the king to capture Black\'s pawn before it promotes.',
