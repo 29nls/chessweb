@@ -26,19 +26,6 @@ CREATE INDEX IF NOT EXISTS idx_games_created_at ON games(created_at DESC);
 -- Enable Row Level Security
 ALTER TABLE games ENABLE ROW LEVEL SECURITY;
 
--- Allow anonymous insert (matching your Supabase anon key setup)
-CREATE POLICY "Anyone can insert games"
-  ON games FOR INSERT
-  TO anon
-  WITH CHECK (true);
-
--- Allow anonymous select all games
-CREATE POLICY "Anyone can view games"
-  ON games FOR SELECT
-  TO anon
-  USING (true);
-
--- DELETE is handled exclusively via the SECURITY DEFINER RPC delete_chess_game
--- (see delete_chess_game.sql migration). Direct DELETE from the REST API is revoked
--- to prevent anyone with the anon key from deleting arbitrary games.
--- No broad DELETE policy is granted to anon.
+-- Access policies are intentionally created by the subsequent
+-- 20260805_secure_game_history_ownership.sql migration. Do not add public
+-- policies here: rerunning this schema script must never reopen game history.

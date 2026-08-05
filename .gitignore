@@ -39,3 +39,7 @@ yarn-error.log*
 AGENTS.md
 .orchestry
 node_modules
+.freebuff/desktop-v2.db-wal
+.gitignore
+.freebuff/desktop-v2.db
+.freebuff/desktop-v2.db-shm

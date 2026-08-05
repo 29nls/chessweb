@@ -1,32 +1,31 @@
-import { supabase } from '../supabaseClient';
+import { historySupabase } from '../supabaseClient';
 import { getPlayerId } from './onlineGameUtils';
+import { getHistoryOwnerId } from './gameHistoryAuth';
 
-/**
- * Save a completed game to the database.
- * Degrades gracefully if Supabase is not configured or table doesn't exist.
- *
- * @param {object} gameData
- * @param {string} gameData.pgn - Full PGN string
- * @param {object} [gameData.result] - { winner, reason }
- * @param {string[]} [gameData.moves] - Array of SAN moves
- * @param {string} [gameData.fen] - Final position FEN
- * @param {string} [gameData.source] - 'online' | 'analysis'
- * @param {string} [gameData.gameCode] - Online game invite code
- * @param {string} [gameData.playerWhite] - White player name
- * @param {string} [gameData.playerBlack] - Black player name
- * @param {number} [gameData.timeControlMs] - Time control in ms
- * @returns {Promise<{ id: number }|null>} Saved game ID or null on failure
- */
-export async function saveGame(gameData) {
-  if (!supabase) {
+function logHistoryError(action, error) {
+  if (error?.code === '42P01') {
+    console.warn('gameHistory: "games" table does not exist. Run the migration SQL in supabase/migrations/');
+  } else {
+    console.warn(`gameHistory: Error ${action}:`, error?.message || error);
+  }
+}
+
+/** Save a completed game using a separate anonymous-auth ownership identity. */
+export async function saveGame(gameData = {}) {
+  if (!historySupabase) {
     console.warn('gameHistory: Supabase not configured, skipping save');
     return null;
   }
 
+  const ownerId = await getHistoryOwnerId();
+  if (!ownerId) return null;
+
   try {
-    const { data, error } = await supabase
+    const { data, error } = await historySupabase
       .from('games')
       .insert({
+        owner_id: ownerId,
+        // Retained as multiplayer metadata; never used for authorization.
         player_id: getPlayerId(),
         player_white: gameData.playerWhite || 'White',
         player_black: gameData.playerBlack || 'Black',
@@ -43,15 +42,9 @@ export async function saveGame(gameData) {
       .single();
 
     if (error) {
-      // Table might not exist yet — warn but don't crash
-      if (error.code === '42P01') {
-        console.warn('gameHistory: "games" table does not exist. Run the migration SQL in supabase/migrations/');
-      } else {
-        console.warn('gameHistory: Error saving game:', error.message);
-      }
+      logHistoryError('saving game', error);
       return null;
     }
-
     return data;
   } catch (err) {
     console.warn('gameHistory: Failed to save game:', err.message);
@@ -60,45 +53,33 @@ export async function saveGame(gameData) {
 }
 
 /**
- * Load games for the current player, sorted by most recent first.
- *
- * @param {object} [options]
- * @param {number} [options.limit=50] - Max games to fetch
- * @param {number} [options.offset=0] - Pagination offset
- * @param {string} [options.source] - Optional source filter ('online'|'analysis')
- * @returns {Promise<Array>} Array of game objects
+ * Load games for the current history owner. Returns null when ownership auth
+ * is unavailable, and an array for an available-but-empty/error result.
  */
 export async function getGames(options = {}) {
-  if (!supabase) {
+  if (!historySupabase) {
     console.warn('gameHistory: Supabase not configured');
-    return [];
+    return null;
   }
 
-  const { limit = 50, offset = 0, source } = options;
+  const ownerId = await getHistoryOwnerId();
+  if (!ownerId) return null;
 
+  const { limit = 50, offset = 0, source } = options;
   try {
-    let query = supabase
+    let query = historySupabase
       .from('games')
       .select('*')
-      .eq('player_id', getPlayerId())
+      .eq('owner_id', ownerId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
-
-    if (source) {
-      query = query.eq('source', source);
-    }
+    if (source) query = query.eq('source', source);
 
     const { data, error } = await query;
-
     if (error) {
-      if (error.code === '42P01') {
-        console.warn('gameHistory: "games" table does not exist. Run the migration SQL.');
-      } else {
-        console.warn('gameHistory: Error loading games:', error.message);
-      }
+      logHistoryError('loading games', error);
       return [];
     }
-
     return data || [];
   } catch (err) {
     console.warn('gameHistory: Failed to load games:', err.message);
@@ -106,26 +87,23 @@ export async function getGames(options = {}) {
   }
 }
 
-/**
- * Get a single game by ID.
- * @param {number} id
- * @returns {Promise<object|null>}
- */
+/** Get a single game by ID, restricted to the current history owner. */
 export async function getGameById(id) {
-  if (!supabase) return null;
+  if (!historySupabase) return null;
+  const ownerId = await getHistoryOwnerId();
+  if (!ownerId) return null;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await historySupabase
       .from('games')
       .select('*')
       .eq('id', id)
+      .eq('owner_id', ownerId)
       .single();
-
     if (error) {
-      console.warn('gameHistory: Error loading game:', error.message);
+      logHistoryError('loading game', error);
       return null;
     }
-
     return data;
   } catch (err) {
     console.warn('gameHistory: Failed to load game:', err.message);
@@ -133,46 +111,45 @@ export async function getGameById(id) {
   }
 }
 
-/**
- * Delete a game by ID. Uses the SECURITY DEFINER RPC to verify ownership.
- * @param {number} id
- * @returns {Promise<boolean>}
- */
+/** Delete a game by ID; RLS authorizes the operation using auth.uid(). */
 export async function deleteGame(id) {
-  if (!supabase) return false;
+  if (!historySupabase) return false;
+  const ownerId = await getHistoryOwnerId();
+  if (!ownerId) return false;
 
   try {
-    const { data, error } = await supabase.rpc('delete_chess_game', {
-      p_game_id: id,
-      p_player_id: getPlayerId(),
-    });
-
+    const { data, error } = await historySupabase
+      .from('games')
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', ownerId)
+      .select('id');
     if (error) {
-      console.warn('gameHistory: Error deleting game:', error.message);
+      logHistoryError('deleting game', error);
       return false;
     }
-
-    return data === true;
+    return Array.isArray(data) && data.length > 0;
   } catch (err) {
     console.warn('gameHistory: Failed to delete game:', err.message);
     return false;
   }
 }
 
-/**
- * Get total game count for the current player.
- * @returns {Promise<number>}
- */
+/** Get total game count for the current history owner. */
 export async function getGameCount() {
-  if (!supabase) return 0;
+  if (!historySupabase) return 0;
+  const ownerId = await getHistoryOwnerId();
+  if (!ownerId) return 0;
 
   try {
-    const { count, error } = await supabase
+    const { count, error } = await historySupabase
       .from('games')
       .select('id', { count: 'exact', head: true })
-      .eq('player_id', getPlayerId());
-
-    if (error) return 0;
+      .eq('owner_id', ownerId);
+    if (error) {
+      logHistoryError('counting games', error);
+      return 0;
+    }
     return count || 0;
   } catch (err) {
     console.warn('gameHistory: Failed to get game count:', err);

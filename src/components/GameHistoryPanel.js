@@ -5,9 +5,6 @@ import { Clock, Cpu, Trash2, Play, ChevronRight } from 'react-feather';
 import { getGames, deleteGame } from '../lib/gameHistory';
 import './GameHistoryPanel.css';
 
-/**
- * Format a date string for display.
- */
 function formatDate(dateStr) {
   try {
     const d = new Date(dateStr);
@@ -16,12 +13,10 @@ function formatDate(dateStr) {
     const diffMin = Math.floor(diffMs / 60000);
     const diffHr = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-
     if (diffMin < 1) return 'Just now';
     if (diffMin < 60) return `${diffMin}m ago`;
     if (diffHr < 24) return `${diffHr}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-
     return d.toLocaleDateString(undefined, {
       month: 'short', day: 'numeric',
       year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
@@ -32,18 +27,12 @@ function formatDate(dateStr) {
   }
 }
 
-/**
- * Format move count for display.
- */
 function formatMoves(count) {
   if (!count) return '0 moves';
   const pairs = Math.ceil(count / 2);
   return `${pairs} move${pairs !== 1 ? 's' : ''}`;
 }
 
-/**
- * Get a friendly result label.
- */
 function resultLabel(result) {
   if (!result) return '';
   if (result.winner === 'draw') return 'Draw';
@@ -52,31 +41,34 @@ function resultLabel(result) {
   return '';
 }
 
-/**
- * Get source icon component.
- */
 function SourceIcon({ source }) {
-  if (source === 'online') {
-    return <Clock size={14} aria-hidden="true" />;
-  }
+  if (source === 'online') return <Clock size={14} aria-hidden="true" />;
   return <Cpu size={14} aria-hidden="true" />;
 }
 
-/**
- * GameHistoryPanel — Browse and replay saved games.
- */
+/** GameHistoryPanel — Browse and replay saved games. */
 const GameHistoryPanel = ({ onClose, onReplay, onReady }) => {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const navigate = useNavigate();
 
   const loadGames = useCallback(async () => {
     setLoading(true);
-    const data = await getGames({ limit: 100 });
-    setGames(data);
-    setLoading(false);
-    onReady?.();
+    try {
+      const data = await getGames({ limit: 100 });
+      const normalizedGames = Array.isArray(data) ? data : [];
+      setGames(normalizedGames);
+      setHistoryUnavailable(data === null || !Array.isArray(data));
+    } catch (err) {
+      console.warn('GameHistoryPanel: Failed to load history:', err);
+      setGames([]);
+      setHistoryUnavailable(true);
+    } finally {
+      setLoading(false);
+      onReady?.();
+    }
   }, [onReady]);
 
   useEffect(() => {
@@ -84,13 +76,8 @@ const GameHistoryPanel = ({ onClose, onReplay, onReady }) => {
   }, [loadGames]);
 
   const handleReplay = useCallback((game) => {
-    if (onReplay) {
-      onReplay(game);
-    } else {
-      // Navigate to analysis with the game PGN
-      const pgnEncoded = encodeURIComponent(game.pgn);
-      navigate(`/analysis?pgn=${pgnEncoded}`);
-    }
+    if (onReplay) onReplay(game);
+    else navigate(`/analysis?pgn=${encodeURIComponent(game.pgn)}`);
   }, [onReplay, navigate]);
 
   const handleDelete = useCallback(async (id) => {
@@ -105,7 +92,18 @@ const GameHistoryPanel = ({ onClose, onReplay, onReady }) => {
     setDeleting(null);
   }, []);
 
-  // ── Empty state ──
+  if (!loading && historyUnavailable) {
+    return (
+      <div className="gh-panel">
+        <div className="gh-empty">
+          <div className="gh-empty-icon" aria-hidden="true">⚠️</div>
+          <h3>History Unavailable</h3>
+          <p>Saved games are unavailable right now. Local gameplay still works.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!loading && games.length === 0) {
     return (
       <div className="gh-panel">
@@ -129,37 +127,24 @@ const GameHistoryPanel = ({ onClose, onReplay, onReady }) => {
 
       {loading ? (
         <div className="gh-loading">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="gh-skeleton" />
-          ))}
+          {[1, 2, 3].map(i => <div key={i} className="gh-skeleton" />)}
         </div>
       ) : (
         <div className="gh-list" role="list" aria-label="Saved games">
           {games.map((game, idx) => (
             <div key={game.id} className="gh-item" role="listitem" style={{ '--stagger': idx }}>
-              <button
-                className="gh-item-main"
-                onClick={() => handleReplay(game)}
-                title="Replay this game"
-              >
+              <button className="gh-item-main" onClick={() => handleReplay(game)} title="Replay this game">
                 <div className="gh-item-top">
-                  <span className="gh-source">
-                    <SourceIcon source={game.source} />
-                    {game.source === 'online' ? 'Online' : 'Analysis'}
-                  </span>
+                  <span className="gh-source"><SourceIcon source={game.source} />{game.source === 'online' ? 'Online' : 'Analysis'}</span>
                   <span className="gh-date">{formatDate(game.created_at)}</span>
                 </div>
                 <div className="gh-item-bottom">
                   <span className="gh-result">
                     {resultLabel(game.result) || 'In progress'}
-                    {game.result?.reason && (
-                      <span className="gh-reason"> ({game.result.reason})</span>
-                    )}
+                    {game.result?.reason && <span className="gh-reason"> ({game.result.reason})</span>}
                   </span>
                   <span className="gh-moves">{formatMoves(game.move_count)}</span>
-                  <span className="gh-replay-icon">
-                    <Play size={12} /> Replay <ChevronRight size={14} />
-                  </span>
+                  <span className="gh-replay-icon"><Play size={12} /> Replay <ChevronRight size={14} /></span>
                 </div>
               </button>
               <button
