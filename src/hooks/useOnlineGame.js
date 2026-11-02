@@ -515,13 +515,29 @@ export function useOnlineGame() {
     return true;
   }, [subscribeToChannel]);
 
-  const sendMove = useCallback((moveData) => {
+  // Move sequence counter for ordering and deduplication.
+  // Incremented on each outgoing move; server-provided sequence via sync_state
+  // can override this.
+  const moveSequenceRef = useRef(0);
+
+  const sendMove = useCallback((moveData, sequence) => {
     if (channelRef.current) {
+      // Generate moveId and sequence if not provided
+      const payload = {
+        ...moveData,
+        playerId: playerIdRef.current,
+        moveId: moveData.moveId || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        sequence: sequence != null ? sequence : (moveSequenceRef.current + 1),
+      };
+
       channelRef.current.send({
         type: 'broadcast',
         event: 'move',
-        payload: { ...moveData, playerId: playerIdRef.current },
+        payload,
       });
+
+      // Update local sequence counter
+      moveSequenceRef.current = payload.sequence;
     }
   }, []);
 

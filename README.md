@@ -19,6 +19,17 @@ ChessWeb is a web-based chess application that allows users to play against a po
 - **Real-time Evaluation Bar:** Visual representation of the engine's evaluation with multi-line analysis.
 - **Dark Mode:** Theme support via `data-theme='dark'` attribute on the root element.
 
+## Routes
+
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page with game mode selection |
+| `/analysis` | Play against Stockfish engine with analysis |
+| `/online` | Online multiplayer lobby and game |
+| `/puzzles` | Tactics trainer with curated puzzles |
+| `/puzzle-rush` | Timed puzzle rush mode |
+| `/history` | Review saved game history |
+
 ## Technologies Used
 
 - **Frontend:** React 19, JavaScript (ES6+)
@@ -27,6 +38,7 @@ ChessWeb is a web-based chess application that allows users to play against a po
 - **Online Multiplayer:** Supabase Realtime (websockets + presence)
 - **Styling:** Custom CSS with CSS variables for theming
 - **Deployment:** Vercel (including Speed Insights & Web Analytics)
+- **Performance:** Route-level code splitting via React.lazy for non-landing routes
 
 ## Setup and Installation
 
@@ -73,16 +85,20 @@ By default, the app uses Stockfish WASM in the browser. If you prefer a backend-
 - **FEN/PGN:** Import/export game data via the FEN and PGN buttons.
 - **Shortcuts:** `R` = New Game, `F` = Flip Board, `←`/`→` = Undo/Redo.
 
+## Performance Optimizations
+
+The application uses route-level code splitting to reduce the initial JavaScript bundle. The landing page loads quickly, and heavy page components (Analysis, Online, Puzzles, etc.) are loaded on demand when navigating to those routes.
+
 ## Project Structure
 
 ```
 src/
-├── components/       # Reusable UI components (OpeningExplorer, SkeletonLoader)
+├── components/       # Reusable UI components (OpeningExplorer, SkeletonLoader, etc.)
 ├── engine/           # Engine abstraction (browser WASM, backend adapter)
 ├── hooks/            # Custom React hooks (useChessEngine, useGameHistory, useOnlineGame, etc.)
-├── lib/              # Utilities (sound effects, opening book)
-├── pages/            # Page components (AnalysisPage, OnlinePage)
-├── App.js            # Root app with routing
+├── lib/              # Utilities (sound effects, opening book, validation, etc.)
+├── pages/            # Page components (AnalysisPage, OnlinePage, PuzzlePage, etc.)
+├── App.js            # Root app with routing and lazy-loaded routes
 ├── ChessboardContainer.js  # Chessboard wrapper with react-chessboard
 ├── Controls.js       # Engine settings and game controls
 ├── EvaluationSection.js    # Evaluation bar and engine stats

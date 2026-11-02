@@ -77,10 +77,43 @@ export default function OnlinePage() {
   }, [online, startSyncInterval]);
 
   // ─── Online: Register move received callback ───
+    // Track the highest sequence number applied to prevent races and duplicates.
+  // Sequence numbers are assigned by the move sender; we trust the sender's
+  // ordering for deduplication but validate moves against the actual position.
+  const appliedSeqRef = useRef(0);
+
   const applyOpponentMove = useCallback((payload) => {
+    // Sequence-based deduplication: skip moves with sequence <= last applied.
+    const { sequence, from, to, promotion, san, moveId, playerId } = payload || {};
+
+    if (sequence != null && sequence <= appliedSeqRef.current) {
+      // Duplicate or out-of-order move — ignore.
+      return;
+    }
+
+    // Validate the move against the current position BEFORE applying.
+    // This prevents applying moves to a stale state and catches races.
+    try {
+      const gameCopy = new Chess(state.fen);
+      const legal = gameCopy.moves({ square: from, verbose: true });
+      const exists = legal.some(m => m.from === from && m.to === to);
+      if (!exists) {
+        // Move not legal in current position — state may be stale.
+        // Don't apply; the periodic sync will reconcile.
+        console.warn('applyOpponentMove: move not legal in current position', {
+          from, to, fen: state.fen, san, moveId, sequence,
+        });
+        return;
+      }
+    } catch (e) {
+      // Invalid FEN — skip this move.
+      console.warn('applyOpponentMove: invalid FEN', e);
+      return;
+    }
+
     const gameCopy = new Chess(state.fen);
-    const moveOptions = { from: payload.from, to: payload.to };
-    if (payload.promotion) moveOptions.promotion = payload.promotion;
+    const moveOptions = { from, to };
+    if (promotion) moveOptions.promotion = promotion;
 
     try {
       const moveResult = gameCopy.move(moveOptions);
@@ -103,6 +136,11 @@ export default function OnlinePage() {
           else if (gameCopy.isThreefoldRepetition()) reason = 'Threefold repetition';
           else if (gameCopy.isInsufficientMaterial()) reason = 'Insufficient material';
           online.broadcastGameOver('draw', reason);
+        }
+
+        // Update applied sequence AFTER successful application.
+        if (sequence != null) {
+          appliedSeqRef.current = sequence;
         }
       }
     } catch (err) {
@@ -384,16 +422,17 @@ export default function OnlinePage() {
 
     const newFen = gameCopy.fen();
     dispatch({
-      type: 'RECORD_MOVE',
       payload: { moveResult: move, newFen },
     });
 
+    // Send move with sequence number for ordering and deduplication.
+    // Sequence = current number of moves in history + 1 (the next move number).
     online.sendMove({
       from: sourceSquare,
       to: targetSquare,
       promotion: moveOptions.promotion || null,
       san: move.san,
-    });
+    }, state.moves.length + 1);
 
     switchClockAfterMove(gameCopy.turn() === 'w' ? 'b' : 'w');
 
@@ -411,6 +450,12 @@ export default function OnlinePage() {
     return true;
   }, [state.fen, online, switchClockAfterMove]);
 
+  const handleLeaveOnlineGame = () => {
+    online.leaveGame();
+    navigate('/');
+  };
+
+
   const handleCloseLobby = () => {
     if (online.gameStatus === 'idle') {
       navigate('/');
@@ -418,12 +463,6 @@ export default function OnlinePage() {
       dispatch({ type: 'SET_LOBBY_VISIBILITY', visible: false });
     }
   };
-
-  const handleLeaveOnlineGame = () => {
-    online.leaveGame();
-    navigate('/');
-  };
-
   const checkedKingSquare = findCheckedKingSquare(state.game);
 
   const currentTurn = state.fen.split(' ')[1];
