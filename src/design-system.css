@@ -14,6 +14,10 @@
   --accent-on-fill: #ffffff;
   --online-accent: #4e7867;
   --danger-color: #b64b4b;
+  /* Warning state: reconnecting, and a high score worth calling out.
+     Distinct from danger, which means something failed. */
+  --warning-color: #8a5a12;
+  --warning-surface: rgba(138, 90, 18, 0.10);
   --border-color: #cbd5cf;
   --shadow-color: rgba(24, 39, 33, 0.11);
   --board-light: #e8d8bd;
@@ -21,6 +25,16 @@
   --surface-raised: #ffffff;
   --surface-inset: #e1e8e3;
   --focus-ring: rgba(184, 95, 59, 0.35);
+  /* Type stacks. Two families with a reason each:
+     - sans for the interface, because it is read in short labels and controls
+     - mono for notation, codes and numerals, because alignment carries meaning
+     The scoresheet direction is served by the mono face on the things that are
+     literally notation, not by setting body copy in a serif. */
+  --font-sans: "Segoe UI Variable", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", "Cascadia Mono", "Consolas", "Liberation Mono", monospace;
+  /* Display face, used only for page titles. A serif at a large size is the one
+     place the scoresheet reference is legible as type rather than as texture. */
+  --font-display: Georgia, "Times New Roman", serif;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -38,6 +52,8 @@
   --accent-on-fill: #161b19;
   --online-accent: #78a992;
   --danger-color: #ec7770;
+  --warning-color: #e0a33c;
+  --warning-surface: rgba(224, 163, 60, 0.12);
   --border-color: #34443d;
   --shadow-color: rgba(0, 0, 0, 0.28);
   --surface-raised: #202b27;
@@ -51,8 +67,25 @@
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: "Segoe UI Variable", "Avenir Next", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: -0.005em;
+}
+
+/* Chess numerals change one digit at a time. Proportional digits make clocks,
+   evaluations and move numbers shift sideways as they update, which is the one
+   place in this product where alignment is load-bearing. */
+.chess-clock,
+.eval-number,
+.eval-value,
+.move-number,
+.move-index,
+.clock-time,
+.rush-timer-value,
+.rush-score-value,
+.puzzle-rating,
+.stat-value,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
 }
 
 .app-shell {
@@ -71,24 +104,49 @@ body {
   padding: 12px clamp(16px, 4vw, 48px);
   box-sizing: border-box;
   background: var(--bg-secondary);
-  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
   border-bottom: 1px solid var(--border-color);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 .App-header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   max-width: var(--content-width);
-  min-height: 40px;
+  min-height: 44px;
   margin: 0 auto;
 }
 
-.App-header-nav::before {
-  content: "CHESSWEB";
+.App-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The wordmark is real text in AppLayout.js, inside a link home. It used to be
+   generated content, which is not selectable, translatable or reliably
+   announced, and left the header with no accessible brand element. */
+.App-header-wordmark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--text-primary);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.18em;
+  text-decoration: none;
+  text-transform: uppercase;
+  padding: 8px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.App-header-wordmark:hover {
+  color: var(--accent-primary);
+}
+
+.App-header-wordmark:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 .app-main {
@@ -114,6 +172,8 @@ body {
   gap: 18px;
 }
 
+/* In-flow surfaces sit flat. Elevation is reserved for things that float
+   above the page, so a shadow means something. */
 .panel,
 .control-section,
 .opening-explorer,
@@ -126,7 +186,14 @@ body {
   background: var(--surface-raised);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+/* The only raised surfaces: dialogs and the lobby card. */
+.modal-panel,
+.lobby-card,
+.online-lobby-card,
+.promotion-dialog {
+  box-shadow: 0 16px 40px var(--shadow-color);
 }
 
 .panel {
@@ -154,8 +221,7 @@ body {
 }
 
 .section-title svg,
-.opening-title svg,
-.features-header h2 svg {
+.opening-title svg {
   color: var(--accent-primary);
 }
 
@@ -281,11 +347,7 @@ body {
 
 .nav-back-btn,
 .nav-theme-btn {
-  height: 38px;
-}
-
-.nav-back-btn {
-  order: -1;
+  min-height: 44px;
 }
 
 .nav-theme-btn {
@@ -472,7 +534,13 @@ body {
   background: var(--surface-raised);
 }
 
-/* Landing: asymmetric studio entry instead of a centered card wall. */
+/* Landing: asymmetric studio entry. The page is read left to right as
+   identity, then the six ways in, then a footer. The first card is wider because
+   it is the one a new user is most likely to want, and the grid encodes that
+   rather than a badge claiming it.
+
+   This block owns landing layout. LandingScreen.css owns the card internals and
+   the mockup visuals. They must not both set the same properties. */
 .landing-screen {
   min-height: 100dvh;
   align-items: stretch;
@@ -495,17 +563,24 @@ body {
 .landing-header .logo-mark {
   grid-column: 1;
   grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 58px;
   height: 58px;
   margin: 0 0 26px;
   border-radius: var(--radius-md);
   background: var(--accent-primary);
+  color: var(--accent-on-fill);
   box-shadow: none;
 }
 
-.landing-header .logo-mark::after,
+/* The knight is the brand mark. An earlier rule hid it in favour of a CPU icon;
+   hardware is not what this product is about. */
 .landing-header .logo-piece {
-  display: none;
+  display: block;
+  font-size: 1.85rem;
+  line-height: 1;
 }
 
 .landing-header h1 {
@@ -515,7 +590,7 @@ body {
   color: var(--text-primary);
   background: none;
   -webkit-text-fill-color: currentColor;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
   font-size: clamp(3.2rem, 8vw, 6.7rem);
   font-weight: 500;
   letter-spacing: -0.075em;
@@ -534,11 +609,8 @@ body {
   line-height: 1.55;
 }
 
-.landing-header .tagline strong {
-  color: var(--accent-primary);
-}
-
 .landing-cards {
+  display: grid;
   max-width: 1100px;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 12px;
@@ -570,22 +642,14 @@ body {
   grid-column: span 4;
 }
 
-.landing-card:first-child .card-icon,
-.card-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-inset);
-}
-
 .landing-card:hover,
 .landing-card.online:hover,
 .landing-card.spectator:hover,
 .landing-card.puzzle:hover,
 .landing-card.history:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   border-color: var(--accent-primary);
-  box-shadow: 0 12px 28px var(--shadow-color);
+  box-shadow: 0 2px 8px var(--shadow-color);
 }
 
 .landing-card:hover .card-icon,
@@ -597,104 +661,8 @@ body {
   box-shadow: none;
 }
 
-.landing-card .card-badge {
-  top: 18px;
-  right: 18px;
-  border-radius: 999px;
-  background: var(--accent-primary);
-  box-shadow: none;
-}
-
-.landing-stats {
-  max-width: 1100px;
-  margin-top: 48px;
-  padding: 20px 0;
-  background: transparent;
-  border: 0;
-  border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.landing-features {
-  max-width: 1100px;
-  margin-top: 64px;
-}
-
-.features-header {
-  text-align: left;
-}
-
-.features-header h2 {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
-  font-weight: 500;
-}
-
-.features-grid {
-  grid-template-columns: 1.2fr 0.8fr 1fr;
-  gap: 12px;
-}
-
-.feature-card {
-  border-radius: var(--radius-md);
-  padding: 18px;
-  box-shadow: none;
-  transform: none;
-  perspective: none;
-}
-
-.feature-card.from-left,
-.feature-card.from-bottom,
-.feature-card.from-right,
-.feature-card.revealed {
-  transform: none;
-}
-
-.feature-card.revealed:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px var(--shadow-color);
-}
-
-.feature-card.revealed:hover .feature-visual,
-.feature-card.revealed:hover .feature-icon,
-.feature-card.revealed:hover .feature-body h3 {
-  transform: none;
-}
-
-.feature-card.revealed::after {
-  display: none;
-}
-
-.feature-visual {
-  border-radius: var(--radius-sm);
-}
-
-.feature-icon {
-  border-radius: var(--radius-sm);
-  background: var(--surface-inset);
-}
-
 .landing-footer {
   margin-top: 64px;
-}
-
-.theme-hint {
-  border-radius: var(--radius-sm);
-}
-
-/* Single, quiet page entrance. Decorative infinite motion is disabled. */
-.sk-transition-wrap {
-  min-height: 100dvh;
-}
-.page-enter {
-  animation: page-enter 260ms ease-out both;
-}
-
-@keyframes page-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 900px) {
@@ -718,9 +686,6 @@ body {
     grid-column: span 6;
   }
 
-  .features-grid {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 @media (max-width: 640px) {
@@ -728,7 +693,7 @@ body {
     padding: 10px 14px;
   }
 
-  .App-header-nav::before {
+  .App-header-wordmark {
     font-size: 0.65rem;
   }
 
@@ -765,13 +730,7 @@ body {
     min-height: 140px;
   }
 
-  .landing-stats {
-    margin-top: 34px;
-  }
 
-  .features-grid {
-    grid-template-columns: 1fr;
-  }
 
   .history-page {
     padding: 20px 16px;
@@ -781,7 +740,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .page-enter,
   .landing-card,
-  .feature-card,
   .history-page,
   .history-header,
   .history-header-icon,

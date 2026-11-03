@@ -45,24 +45,22 @@ test('Landing page renders all six game mode cards', async () => {
   expect(screen.getByText('Game History')).toBeInTheDocument();
 });
 
-test('Landing page has stable layout container with CLS prevention', async () => {
+test('Landing page renders its content immediately, without a skeleton', async () => {
   render(<App />);
 
   // The landing screen should render within main element
   const main = document.querySelector('main');
   expect(main).toBeInTheDocument();
+  expect(main).toHaveClass('landing-screen');
 
-  // Landing container should be present
-  const landingWrap = document.querySelector('.sk-landing-wrap');
-  expect(landingWrap).toBeInTheDocument();
+  // The landing page has no data dependency, so it must not withhold its
+  // content behind a loading overlay or announce progress for work it is
+  // not doing.
+  expect(document.querySelector('.sk-landing-overlay')).not.toBeInTheDocument();
+  expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
 
-  // Debug: log actual aria-labels present
-  const allElements = document.querySelectorAll('[aria-label]');
-  const ariaLabels = Array.from(allElements).map(el => el.getAttribute('aria-label'));
-  console.log('Found aria-labels:', ariaLabels);
-
-  // Just check the structure exists, not specific aria-label content
-  expect(document.querySelector('.sk-landing-wrap section')).toBeInTheDocument();
+  // The mode grid is present on first paint
+  expect(document.querySelector('.landing-cards')).toBeInTheDocument();
 });
 
 test('Landing page has navigation elements with click handlers', async () => {

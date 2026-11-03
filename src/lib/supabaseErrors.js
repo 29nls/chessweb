@@ -7,13 +7,13 @@ const ERROR_PATTERNS = [
   {
     // RLS policy violation
     test: (msg) => /violates row-level security policy/i.test(msg),
-    friendly: () => 'Server permission error. The game system is being set up — please try again in a moment.',
+    friendly: () => 'Server permission error. The game system is being set up, so please try again in a moment.',
     code: 'RLS_VIOLATION',
   },
   {
     // Unique constraint violation (duplicate game code — extremely rare but possible)
     test: (msg) => /duplicate key.*violates.*unique constraint/i.test(msg),
-    friendly: () => 'A game with this code already exists. Please try again — a new code will be generated.',
+    friendly: () => 'A game with this code already exists. Please try again and a new code will be generated.',
     code: 'DUPLICATE_CODE',
   },
   {

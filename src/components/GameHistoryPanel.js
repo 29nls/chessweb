@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Clock, Cpu, Trash2, Play, ChevronRight } from 'react-feather';
+import { Clock, Cpu, Trash2, Play, ChevronRight, AlertTriangle } from 'react-feather';
 import { getGames, deleteGame } from '../lib/gameHistory';
 import './GameHistoryPanel.css';
 
@@ -96,7 +96,9 @@ const GameHistoryPanel = ({ onClose, onReplay, onReady }) => {
     return (
       <div className="gh-panel">
         <div className="gh-empty">
-          <div className="gh-empty-icon" aria-hidden="true">⚠️</div>
+          <div className="gh-empty-icon" aria-hidden="true">
+            <AlertTriangle size={22} />
+          </div>
           <h3>History Unavailable</h3>
           <p>Saved games are unavailable right now. Local gameplay still works.</p>
         </div>
@@ -108,7 +110,9 @@ const GameHistoryPanel = ({ onClose, onReplay, onReady }) => {
     return (
       <div className="gh-panel">
         <div className="gh-empty">
-          <div className="gh-empty-icon" aria-hidden="true">📜</div>
+          <div className="gh-empty-icon" aria-hidden="true">
+            <Clock size={22} />
+          </div>
           <h3>No Games Yet</h3>
           <p>Your completed games will appear here automatically.</p>
         </div>

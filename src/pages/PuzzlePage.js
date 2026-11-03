@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { toast } from 'react-toastify';
-import { ChevronRight, RotateCcw, Shuffle, Star, Filter } from 'react-feather';
+import { ChevronRight, RotateCcw, Shuffle, Star, Filter, CheckCircle } from 'react-feather';
 import { useLoadingSequence } from '../hooks/useLoadingSequence';
 import { PuzzleSkeleton } from '../components/SkeletonLoader';
 import ErrorBoundary from '../ErrorBoundary';
@@ -397,7 +397,7 @@ export default function PuzzlePage() {
 
               {puzzleSolved && (
                 <div className="puzzle-solved-banner">
-                  <span className="solved-icon">🎉</span>
+                  <CheckCircle size={18} aria-hidden="true" />
                   <span className="solved-text">Solved!</span>
                 </div>
               )}

@@ -1,13 +1,14 @@
 /* ===== Puzzle Rush Mode Layout ===== */
 
-.puzzle-rush-mode .App-body {
-  grid-template-columns: 260px 1fr 220px;
+/* Compound selector: the class is on the grid container itself. */
+.App-body.puzzle-rush-mode {
+  grid-template-columns: 260px minmax(0, 1fr) 220px;
   grid-template-areas:
     "hud chessboard solution";
 }
 
 @media (max-width: 1100px) {
-  .puzzle-rush-mode .App-body {
+  .App-body.puzzle-rush-mode {
     grid-template-columns: 1fr;
     grid-template-areas:
       "chessboard"
@@ -17,7 +18,7 @@
 }
 
 @media (max-width: 640px) {
-  .puzzle-rush-mode .App-body {
+  .App-body.puzzle-rush-mode {
     gap: 12px;
   }
 }
@@ -273,7 +274,7 @@
 
 .move-san {
   font-weight: 600;
-  font-family: 'Inter', monospace;
+  font-family: var(--font-mono);
 }
 
 .move-san.player { color: var(--text-primary); }
@@ -361,7 +362,10 @@
 
 .rush-time-btn {
   flex: 1;
-  padding: 8px 12px;
+  /* Same 44px floor as the difficulty chips: these sit adjacent, so a small
+     target picks the wrong time limit. */
+  min-height: 44px;
+  padding: 10px 14px;
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
@@ -379,7 +383,7 @@
 }
 
 .rush-time-btn.active {
-  background: linear-gradient(135deg, var(--accent-primary), #a78bfa);
+  background: var(--accent-primary);
   color: #fff;
   border-color: transparent;
   box-shadow: 0 2px 8px rgba(93, 173, 226, 0.3);
@@ -415,7 +419,7 @@
   gap: 6px;
   font-size: 0.85em;
   font-weight: 600;
-  color: #f59e0b;
+  color: var(--warning-color);
 }
 
 .rush-btn-start {
@@ -529,9 +533,9 @@
 }
 
 .rush-end-high {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: #f59e0b;
-  color: #f59e0b;
+  background: var(--warning-surface);
+  border-color: var(--warning-color);
+  color: var(--warning-color);
 }
 
 .rush-end-best {

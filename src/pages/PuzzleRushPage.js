@@ -340,10 +340,10 @@ export default function PuzzleRushPage() {
       livesRef.current = l;
 
       if (l <= 0) {
-        toast.error('Wrong move — game over!', { autoClose: 2000 });
+        toast.error('Wrong move. Game over.', { autoClose: 2000 });
         endGame();
       } else {
-        toast.info(`Wrong — ${l} ${l === 1 ? 'life' : 'lives'} left`);
+        toast.info(`Wrong move. ${l} ${l === 1 ? 'life' : 'lives'} left.`);
       }
     }
 
@@ -562,7 +562,7 @@ function RushStartScreen({ timePreset, onTimePresetChange, onStart, highScore })
       </div>
 
       <div className="rush-rules">
-        <div className="rush-rule"><Heart size={14} /> 3 lives — lose one per mistake or timeout</div>
+        <div className="rush-rule"><Heart size={14} /> 3 lives, lose one per mistake or timeout</div>
         <div className="rush-rule"><Zap size={14} /> Streak bonuses multiply your score</div>
         <div className="rush-rule"><Clock size={14} /> Beat the clock on all 20 puzzles</div>
       </div>
@@ -611,7 +611,7 @@ function RushHUD({ currentPuzzle, puzzleIndex, puzzlesSolved, score, lives, stre
         <div className="rush-main-score">{score}</div>
         <div className="rush-combo">
           {combo > 1 && <span className="rush-combo-badge">×{combo.toFixed(2)}</span>}
-          {streak > 1 && <span className="rush-streak-badge">{streak} streak 🔥</span>}
+          {streak > 1 && <span className="rush-streak-badge">{streak} streak</span>}
           {scorePopup && (
             <span className="rush-score-popup" key={scorePopup.key}>
               {scorePopup.text}

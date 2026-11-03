@@ -18,7 +18,7 @@ const puzzles = [
     moves: ['Nd4', 'Nxd4', 'Bb5'],
     rating: 1200,
     themes: ['Fork', 'Center'],
-    description: 'White to play — exploit the loose knight on c6.',
+    description: 'White to play. exploit the loose knight on c6.',
   },
   {
     id: 2,
@@ -26,7 +26,7 @@ const puzzles = [
     moves: ['Nxe4', 'dxe4', 'Bxf2+'],
     rating: 1400,
     themes: ['Fork', 'Sacrifice'],
-    description: 'Black to play — a classic fork on f2.',
+    description: 'Black to play. a classic fork on f2.',
   },
 
   // ─── Sacrifice / Mating Attack ───
@@ -36,7 +36,7 @@ const puzzles = [
     moves: ['Qxg7', 'Rg8', 'Qxf8+'],
     rating: 1100,
     themes: ['Sacrifice', 'Mating Attack'],
-    description: 'White to play — a queen sacrifice to force checkmate.',
+    description: 'White to play. a queen sacrifice to force checkmate.',
   },
   {
     id: 4,
@@ -44,7 +44,7 @@ const puzzles = [
     moves: ['Bxf7+', 'Rxf7', 'Ng5'],
     rating: 1500,
     themes: ['Sacrifice', 'Greek Gift'],
-    description: 'White to play — the classic Greek Gift sacrifice.',
+    description: 'White to play. the classic Greek Gift sacrifice.',
   },
 
   // ─── Pin / Skewer ───
@@ -54,7 +54,7 @@ const puzzles = [
     moves: ['Bxf7+', 'Rxf7', 'Ng5'],
     rating: 1600,
     themes: ['Pin', 'Sacrifice'],
-    description: 'White to play — exploit the pinned knight.',
+    description: 'White to play. exploit the pinned knight.',
   },
   {
     id: 6,
@@ -62,7 +62,7 @@ const puzzles = [
     moves: ['Qxd4', 'g4', 'Qxd1', 'Rfxd1', 'Rxd1+'],
     rating: 1700,
     themes: ['Skewer', 'Queen Trap'],
-    description: 'Black to play — win material with a skewer.',
+    description: 'Black to play. win material with a skewer.',
   },
 
   // ─── Discovered Attack ───
@@ -72,7 +72,7 @@ const puzzles = [
     moves: ['Bxf7+', 'Kd7', 'Nxe5+'],
     rating: 1300,
     themes: ['Discovered Attack', 'Fork'],
-    description: 'White to play — discover an attack on the queen.',
+    description: 'White to play. discover an attack on the queen.',
   },
   {
     id: 8,
@@ -80,7 +80,7 @@ const puzzles = [
     moves: ['Bxf7+', 'Rxf7', 'Ng5'],
     rating: 1500,
     themes: ['Discovered Attack', 'Sacrifice'],
-    description: 'White to play — clear the way for a winning discovery.',
+    description: 'White to play. clear the way for a winning discovery.',
   },
 
   // ─── Back Rank Mate ───
@@ -90,7 +90,7 @@ const puzzles = [
     moves: ['Rd6', 'Qb8+', 'Rd8'],
     rating: 1400,
     themes: ['Back Rank', 'Mate Threat'],
-    description: 'Black to play — threaten mate on the back rank.',
+    description: 'Black to play. threaten mate on the back rank.',
   },
 
   // ─── Deflection / Removal of Defender ───
@@ -100,7 +100,7 @@ const puzzles = [
     moves: ['Bxf7+', 'Rxf7', 'Ng5'],
     rating: 1600,
     themes: ['Deflection', 'Sacrifice'],
-    description: 'White to play — deflect the defender of the queen.',
+    description: 'White to play. deflect the defender of the queen.',
   },
 
   // ─── Interference ───
@@ -110,7 +110,7 @@ const puzzles = [
     moves: ['Bxf7+', 'Rxf7', 'Ng5'],
     rating: 1700,
     themes: ['Interference', 'Mate'],
-    description: 'White to play — cut off the defender.',
+    description: 'White to play. cut off the defender.',
   },
 
   // ─── Pawn Promotion ───
@@ -120,7 +120,7 @@ const puzzles = [
     moves: ['Ke4', 'Kd8', 'Kf5', 'Ke8', 'Ke6', 'Kf8', 'Kxd6', 'Kg8', 'Kc7', 'Kh8', 'd6', 'Kh7', 'd7', 'Kg8', 'd8=Q'],
     rating: 1800,
     themes: ['Pawn Endgame', 'Promotion'],
-    description: 'White to play — can you promote the pawn?',
+    description: 'White to play. can you promote the pawn?',
   },
   {
     id: 13,
@@ -128,7 +128,7 @@ const puzzles = [
     moves: ['Kf6', 'Kd5', 'Kg6', 'Ke5', 'Kh6', 'Kf5', 'g4', 'Ke5', 'g5', 'Kf5', 'g6', 'Ke5', 'g7', 'Kf5', 'g8=Q'],
     rating: 2000,
     themes: ['Pawn Endgame', 'King Opposition'],
-    description: 'White to play — use king opposition to promote.',
+    description: 'White to play. use king opposition to promote.',
   },
 
   // ─── Smothered Mate ───
@@ -138,7 +138,7 @@ const puzzles = [
     moves: ['Nf5', 'Kf8', 'Nh6', 'gxh6', 'd6'],
     rating: 1500,
     themes: ['Smothered Mate', 'Knight'],
-    description: 'White to play — set up a smothered mate pattern.',
+    description: 'White to play. set up a smothered mate pattern.',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -151,7 +151,7 @@ const puzzles = [
     moves: ['e6', 'Kb8', 'e7', 'Kc8', 'e8=Q'],
     rating: 1900,
     themes: ['Zugzwang', 'Pawn Endgame', 'Promotion'],
-    description: 'White to play — force Black into zugzwang and promote with mate.',
+    description: 'White to play. force Black into zugzwang and promote with mate.',
   },
   {
     id: 16,
@@ -159,7 +159,7 @@ const puzzles = [
     moves: ['e6+', 'Kc8', 'e7', 'Kd7', 'e8=Q'],
     rating: 1800,
     themes: ['Zugzwang', 'Pawn Endgame', 'Promotion'],
-    description: 'White to play — outflank Black and promote the pawn.',
+    description: 'White to play. outflank Black and promote the pawn.',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -172,7 +172,7 @@ const puzzles = [
     moves: ['Ng5', 'Nxe4', 'Nxf7'],
     rating: 1200,
     themes: ['Zwischenzug', 'Fork', 'Trap'],
-    description: 'White to play — a zwischenzug! Fork the queen and rook instead of retreating.',
+    description: 'White to play. a zwischenzug! Fork the queen and rook instead of retreating.',
   },
 
   // ═══════════════════════════════════════════════════════════
@@ -185,7 +185,7 @@ const puzzles = [
     moves: ['Ke4', 'Kc7', 'f6', 'Kb8', 'f7', 'Kc8', 'f8=Q'],
     rating: 1800,
     themes: ['Endgame', 'Pawn Promotion', 'King Opposition'],
-    description: 'White to play — use king opposition to promote the pawn.',
+    description: 'White to play. use king opposition to promote the pawn.',
   },
   {
     id: 19,
@@ -193,7 +193,7 @@ const puzzles = [
     moves: ['Kc4', 'Ka7', 'Kb5', 'Ka8', 'Kxa5'],
     rating: 2000,
     themes: ['Endgame', 'Pawn Race', 'King Maneuver'],
-    description: 'White to play — march the king to capture Black\'s pawn before it promotes.',
+    description: 'White to play. march the king to capture Black\'s pawn before it promotes.',
   },
 ];
 

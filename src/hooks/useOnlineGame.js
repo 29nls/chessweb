@@ -244,8 +244,10 @@ export function useOnlineGame() {
       }
     });
 
+    // sync_state is used by spectators on join AND by players when a move is
+    // dropped (stale/illegal) so the game cannot silently desync.
     channel.on('broadcast', { event: 'sync_state' }, ({ payload }) => {
-      if (color === 'spectator' && payload.targetId === playerIdRef.current && onSyncStateReceivedRef.current) {
+      if (payload.targetId === playerIdRef.current && onSyncStateReceivedRef.current) {
         onSyncStateReceivedRef.current(payload.fen, payload.moves, payload.history);
       }
     });
@@ -388,7 +390,7 @@ export function useOnlineGame() {
           return false;
         }
         if (!claim?.claimed) {
-          setError('Could not reserve a game slot. The server may be busy — please try again.');
+          setError('Could not reserve a game slot. The server may be busy, so please try again.');
           return false;
         }
       } catch (rawError) {
@@ -540,6 +542,19 @@ export function useOnlineGame() {
       moveSequenceRef.current = payload.sequence;
     }
   }, []);
+
+  // Ask the opponent for the authoritative position after a dropped move.
+  // Only a player can answer (both colors handle request_state), so a desync
+  // self-heals instead of silently diverging.
+  const requestSyncState = useCallback(() => {
+    if (!channelRef.current) return;
+    if (playerColor === 'spectator') return;
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'request_state',
+      payload: { spectatorId: playerIdRef.current, requesterId: playerIdRef.current },
+    });
+  }, [playerColor]);
 
   const sendSyncState = useCallback((targetId, fen, moves, history) => {
     if (channelRef.current) {
@@ -717,6 +732,7 @@ export function useOnlineGame() {
     onClockSync: clock.registerOnClockSync,
     onStateRequested: registerOnStateRequested,
     onSyncStateReceived: registerOnSyncStateReceived,
+    requestSyncState,
     onTakebackRequested: registerOnTakebackRequested,
     onTakebackResponded: registerOnTakebackResponded,
     onDrawOffered: registerOnDrawOffered,
@@ -730,7 +746,7 @@ export function useOnlineGame() {
     clock.startClock, clock.stopClock, clock.sendClockSync,
     clock.setTimeControl, clock.setClockTimesFromSync,
     clock.registerOnClockSync,
-    createGame, joinGame, joinAsSpectator, sendMove, sendSyncState,
+    createGame, joinGame, joinAsSpectator, sendMove, sendSyncState, requestSyncState,
     resign, broadcastGameOver, leaveGame,
     sendTakebackRequest, sendTakebackResponse,
     offerDraw, sendDrawResponse,

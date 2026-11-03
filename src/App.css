@@ -260,7 +260,7 @@
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 4px;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.4;
   pointer-events: none;
 }
@@ -319,15 +319,30 @@ input:checked + .slider:before {
   font-weight: 500;
 }
 
+/* The visible track is 8px, but the element keeps a 44px touch area so the
+   depth slider can be dragged on a phone without missing it. */
 input[type="range"] {
   -webkit-appearance: none;
+  appearance: none;
   width: 100%;
+  min-height: 44px;
+  background: transparent;
+  outline: none;
+  opacity: 0.85;
+  transition: opacity .2s;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
   height: 8px;
   background: var(--border-color);
   border-radius: 4px;
-  outline: none;
-  opacity: 0.7;
-  transition: opacity .2s;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
 }
 
 input[type="range"]:hover {
@@ -403,20 +418,19 @@ input[type="range"]:disabled {
   box-sizing: border-box;
 }
 
+/* One accent fill, one foreground token, one border colour.
+   The gradient this replaces spanned two hues of very different luminance, so no
+   single foreground colour could pass AA across its full width. A flat fill can. */
 .button-primary {
-  background: linear-gradient(135deg, var(--accent-primary), var(--online-accent));
-  color: #fff;
-  border: none;
+  background: var(--accent-primary);
+  color: var(--accent-on-fill);
+  border: 1px solid var(--accent-primary);
 }
 
-/* Dark mode: use darker gradient stops so white button text passes WCAG AA */
-[data-theme='dark'] .button-primary {
-  background: linear-gradient(135deg, #2563EB, #059669);
-}
-
-.button-primary:hover {
+.button-primary:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+  border-color: var(--accent-primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(93, 173, 226, 0.35);
 }
 
 .button-primary:active:not(:disabled) {
@@ -931,7 +945,7 @@ input[type="range"]:disabled {
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-family: 'Inter', monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
   font-weight: 700;
   color: var(--accent-primary);
@@ -956,7 +970,7 @@ input[type="range"]:disabled {
 .shortcut-guide-hint kbd {
   display: inline;
   padding: 1px 6px;
-  font-family: 'Inter', monospace;
+  font-family: var(--font-mono);
   font-size: 0.9em;
   font-weight: 700;
   background: var(--bg-tertiary);
@@ -986,7 +1000,7 @@ input[type="range"]:disabled {
 }
 
 .nav-back-btn {
-  height: 40px;
+  min-height: 44px;
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
@@ -1003,8 +1017,9 @@ input[type="range"]:disabled {
 }
 
 .nav-theme-btn {
-  height: 40px;
-  width: 40px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1440,11 +1455,14 @@ input[type="range"]:disabled {
 
 .skip-link {
   position: absolute;
-  top: -40px;
+  top: -56px;
   left: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   background: var(--accent-primary);
-  color: #fff;
-  padding: 8px 16px;
+  color: var(--accent-on-fill);
+  padding: 10px 16px;
   border-radius: 0 0 8px 0;
   text-decoration: none;
   font-weight: 600;
@@ -1454,7 +1472,7 @@ input[type="range"]:disabled {
 
 .skip-link:focus {
   top: 0;
-  outline: 2px solid #fff;
+  outline: 2px solid var(--accent-on-fill);
   outline-offset: 2px;
 }
 

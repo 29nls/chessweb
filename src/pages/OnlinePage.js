@@ -11,6 +11,7 @@ import { playMoveSound, findCheckedKingSquare, playSound } from '../lib/sound';
 import { copyShareLink } from '../lib/share';
 import { saveGame } from '../lib/gameHistory';
 import { onlineReducer, initialOnlineState } from '../lib/onlinePageReducer';
+import { classifyIncomingMove, nextMoveSequence, MOVE_SEQUENCE_RESULT } from '../lib/moveSequence';
 
 const ChessboardContainer = React.lazy(() => import('../ChessboardContainer'));
 
@@ -77,76 +78,80 @@ export default function OnlinePage() {
   }, [online, startSyncInterval]);
 
   // ─── Online: Register move received callback ───
-    // Track the highest sequence number applied to prevent races and duplicates.
-  // Sequence numbers are assigned by the move sender; we trust the sender's
-  // ordering for deduplication but validate moves against the actual position.
-  const appliedSeqRef = useRef(0);
 
   const applyOpponentMove = useCallback((payload) => {
-    // Sequence-based deduplication: skip moves with sequence <= last applied.
-    const { sequence, from, to, promotion, san, moveId, playerId } = payload || {};
+    const { sequence, from, to, promotion, san, moveId } = payload || {};
 
-    if (sequence != null && sequence <= appliedSeqRef.current) {
-      // Duplicate or out-of-order move — ignore.
+    // Expected sequence is derived from the moves actually applied, not from a
+    // one-way watermark: a delayed-but-valid move must still be applied.
+    // state.moves and state.fen are updated by the same reducer action, so they
+    // can never disagree (unlike a ref that trails the last render).
+    const verdict = classifyIncomingMove({ sequence, appliedCount: state.moves.length });
+
+    if (verdict === MOVE_SEQUENCE_RESULT.DUPLICATE) {
+      // Already applied (duplicate delivery) — ignore.
       return;
     }
 
-    // Validate the move against the current position BEFORE applying.
-    // This prevents applying moves to a stale state and catches races.
+    if (verdict === MOVE_SEQUENCE_RESULT.GAP) {
+      // We missed at least one move. Supabase broadcast is at-most-once, so
+      // this cannot be recovered locally: ask the opponent for the real state
+      // instead of guessing and drifting further out of sync.
+      console.warn('applyOpponentMove: sequence gap, requesting resync', {
+        appliedCount: state.moves.length, received: sequence, moveId,
+      });
+      if (online.requestSyncState) online.requestSyncState();
+      return;
+    }
+
+    // Validate against the current position before mutating anything.
     try {
-      const gameCopy = new Chess(state.fen);
-      const legal = gameCopy.moves({ square: from, verbose: true });
-      const exists = legal.some(m => m.from === from && m.to === to);
-      if (!exists) {
-        // Move not legal in current position — state may be stale.
-        // Don't apply; the periodic sync will reconcile.
-        console.warn('applyOpponentMove: move not legal in current position', {
+      const probe = new Chess(state.fen);
+      const legal = probe.moves({ square: from, verbose: true });
+      if (!legal.some(m => m.from === from && m.to === to)) {
+        // Stale board or invalid move: recover from the opponent rather than
+        // applying a move to the wrong position.
+        console.warn('applyOpponentMove: move not legal here, requesting resync', {
           from, to, fen: state.fen, san, moveId, sequence,
         });
+        if (online.requestSyncState) online.requestSyncState();
         return;
       }
-    } catch (e) {
-      // Invalid FEN — skip this move.
-      console.warn('applyOpponentMove: invalid FEN', e);
+    } catch (err) {
+      console.warn('applyOpponentMove: invalid position, requesting resync', err);
+      if (online.requestSyncState) online.requestSyncState();
       return;
     }
 
-    const gameCopy = new Chess(state.fen);
-    const moveOptions = { from, to };
-    if (promotion) moveOptions.promotion = promotion;
-
     try {
+      const gameCopy = new Chess(state.fen);
+      const moveOptions = { from, to };
+      if (promotion) moveOptions.promotion = promotion;
       const moveResult = gameCopy.move(moveOptions);
-      if (moveResult) {
-        const newFen = gameCopy.fen();
-        dispatch({
-          type: 'RECORD_MOVE',
-          payload: { moveResult, newFen },
-        });
+      if (!moveResult) return;
 
-        playMoveSound(moveResult, gameCopy);
-        switchClockAfterMove(gameCopy.turn() === 'w' ? 'b' : 'w');
+      dispatch({
+        type: 'RECORD_MOVE',
+        payload: { moveResult, newFen: gameCopy.fen() },
+      });
 
-        if (gameCopy.isCheckmate()) {
-          const winner = gameCopy.turn() === 'w' ? 'black' : 'white';
-          online.broadcastGameOver(winner, 'Checkmate!');
-        } else if (gameCopy.isDraw()) {
-          let reason = 'Draw';
-          if (gameCopy.isStalemate()) reason = 'Stalemate';
-          else if (gameCopy.isThreefoldRepetition()) reason = 'Threefold repetition';
-          else if (gameCopy.isInsufficientMaterial()) reason = 'Insufficient material';
-          online.broadcastGameOver('draw', reason);
-        }
+      playMoveSound(moveResult, gameCopy);
+      switchClockAfterMove(gameCopy.turn() === 'w' ? 'b' : 'w');
 
-        // Update applied sequence AFTER successful application.
-        if (sequence != null) {
-          appliedSeqRef.current = sequence;
-        }
+      if (gameCopy.isCheckmate()) {
+        const winner = gameCopy.turn() === 'w' ? 'black' : 'white';
+        online.broadcastGameOver(winner, 'Checkmate!');
+      } else if (gameCopy.isDraw()) {
+        let reason = 'Draw';
+        if (gameCopy.isStalemate()) reason = 'Stalemate';
+        else if (gameCopy.isThreefoldRepetition()) reason = 'Threefold repetition';
+        else if (gameCopy.isInsufficientMaterial()) reason = 'Insufficient material';
+        online.broadcastGameOver('draw', reason);
       }
     } catch (err) {
       console.warn('Failed to apply opponent move:', err);
     }
-  }, [state.fen, online, switchClockAfterMove]);
+  }, [state.fen, state.moves.length, online, switchClockAfterMove]);
 
   useEffect(() => {
     online.onMoveReceived(applyOpponentMove);
@@ -159,11 +164,14 @@ export default function OnlinePage() {
     });
 
     online.onSyncStateReceived((syncedFen, syncedMoves, syncedHistory) => {
+      const isSpectator = online.playerColor === 'spectator';
+      // Players keep their own board orientation; only spectators default to white.
+      const orientation = isSpectator ? 'white' : (online.playerColor || 'white');
       dispatch({
         type: 'SYNC_STATE',
-        payload: { fen: syncedFen, moves: syncedMoves, moveHistory: syncedHistory, orientation: 'white' },
+        payload: { fen: syncedFen, moves: syncedMoves, moveHistory: syncedHistory, orientation },
       });
-      toast.success('Joined as Spectator');
+      if (isSpectator) toast.success('Joined as Spectator');
     });
   }, [online]);
 
@@ -422,17 +430,19 @@ export default function OnlinePage() {
 
     const newFen = gameCopy.fen();
     dispatch({
+      type: 'RECORD_MOVE',
       payload: { moveResult: move, newFen },
     });
 
-    // Send move with sequence number for ordering and deduplication.
-    // Sequence = current number of moves in history + 1 (the next move number).
+    // Tag the move with its 1-based sequence number so the opponent can detect
+    // duplicates and gaps. state.moves.length is pre-dispatch here, so the next
+    // sequence is exactly this move's position in the game.
     online.sendMove({
       from: sourceSquare,
       to: targetSquare,
       promotion: moveOptions.promotion || null,
       san: move.san,
-    }, state.moves.length + 1);
+    }, nextMoveSequence(state.moves.length));
 
     switchClockAfterMove(gameCopy.turn() === 'w' ? 'b' : 'w');
 
@@ -448,13 +458,12 @@ export default function OnlinePage() {
     }
 
     return true;
-  }, [state.fen, online, switchClockAfterMove]);
+  }, [state.fen, state.moves.length, online, switchClockAfterMove]);
 
   const handleLeaveOnlineGame = () => {
     online.leaveGame();
     navigate('/');
   };
-
 
   const handleCloseLobby = () => {
     if (online.gameStatus === 'idle') {
